@@ -34,7 +34,7 @@ Sources : effectsdatabase.com (fiche et manuel CF7), mirosol.kapsi.fi (puce M501
 ## Interface
 
 - Fenêtre ouverte par défaut à **493 px de haut** ; impossible de la réduire en dessous. La pédale occupe presque toute la hauteur, comme Textural et Freeze Shimmer.
-- **Clic droit** : taille (Default / 75 % / 100 %), presets d'usine, presets utilisateur 1 à 9 (charger / sauvegarder), table MIDI.
+- **Clic droit** : Plugin size (60 % / 75 % / 100 %, « (default) » sur la taille par défaut choisie ; sous-menu « Default size (new windows) » : taille d'ouverture des nouvelles fenêtres, commune à toutes les instances, appliquée aussi tout de suite à la fenêtre ouverte ; la fenêtre ne descend jamais sous 60 %), presets d'usine, presets utilisateur 1 à 9 (charger / sauvegarder), table MIDI.
 - **Potards** : noirs sobres, rendu haute définition pré-calculé (128 positions) : calotte noire usinée, jupe moletée noire, repère blanc ; la lumière reste fixe en haut à gauche, seuls le repère et le moletage tournent.
 - **LED et jauge** : bleu glace en Chorus, jaune-orangé (même intensité) en Flanger ; la jauge sous la LED s'allume de gauche (0 %) à droite (100 %) selon le dernier potard tourné.
 - **Switchs MODE / KRAZY** : le levier se déplace réellement (gauche = Chorus / Normal, droite = Flanger / Wack'd).
@@ -90,3 +90,7 @@ Référence DSP : J. O. Smith, *Physical Audio Signal Processing* (CCRMA), chapi
 ## Nouveautés v1.7
 
 - v1.7.0 : MIDI Learn au clic droit sur chaque commande (Clear MIDI, assignations sauvegardées avec le projet)
+
+## Nouveautés v1.8
+
+- v1.8.0 : clic droit > Plugin size > Default size (new windows) : taille par défaut des nouvelles fenêtres au choix, comme dans Octopus

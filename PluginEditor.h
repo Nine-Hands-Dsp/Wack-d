@@ -81,6 +81,8 @@ public:
     static constexpr int baseW = 760;
     static constexpr int baseH = 958;
     static constexpr int defaultH = 493;
+    static constexpr int numSizes = 3;          // 60 % (defaut d'origine) / 75 % / 100 %
+    static int sizeHeight (int idx);
 
 private:
     void timerCallback() override;

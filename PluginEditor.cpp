@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "WigaWindowSize.h"
 #include "BinaryData.h"
 
 using namespace juce;
@@ -203,6 +204,8 @@ WackdAudioProcessorEditor::WackdAudioProcessorEditor (WackdAudioProcessor& p)
         cons->setFixedAspectRatio ((double) baseW / (double) baseH);
     setOpaque (true);                      // anti-gel : l'hote ne redessine jamais ce qui est derriere la fenetre
     setSize (defaultW, defaultH);
+    // taille des nouvelles fenetres : celle choisie dans le menu « Default size (new windows) »
+    setScaledHeight (sizeHeight (WigaWindowSize::defaultIndex (JucePlugin_Name, numSizes)));
     rebuildBrand();
     rebuildCaches();
 
@@ -293,6 +296,12 @@ void WackdAudioProcessorEditor::rebuildCaches (float sc)
     bgScaled = (pw >= background.getWidth()) ? background
                                              : background.rescaled (pw, ph, Graphics::highResamplingQuality);
     repaint();
+}
+
+int WackdAudioProcessorEditor::sizeHeight (int idx)
+{
+    const int h[numSizes] = { (int) defaultH, roundToInt (baseH * 0.75f), (int) baseH };
+    return h[jlimit (0, numSizes - 1, idx)];
 }
 
 void WackdAudioProcessorEditor::setScaledHeight (int h)
@@ -724,12 +733,20 @@ void WackdAudioProcessorEditor::showContextMenu (int learnIdx)
     PopupMenu menu;
     addMidiMenu (menu, learnIdx);
 
-    PopupMenu sizes;
-    const int defaultW = roundToInt ((float) defaultH * (float) baseW / (float) baseH);
-    sizes.addItem (1, "60 % (default)", true, getHeight() == defaultH);
-    sizes.addItem (2, "75 %",  true, getHeight() == roundToInt (baseH * 0.75f));
-    sizes.addItem (3, "100 %", true, getHeight() == baseH);
-    menu.addSubMenu ("Window size", sizes);
+    {
+        // Plugin size : taille de cette fenetre + taille par defaut des nouvelles fenetres (comme Octopus)
+        const char* names[numSizes] = { "60 %", "75 %", "100 %" };
+        const int def = WigaWindowSize::defaultIndex (JucePlugin_Name, numSizes);
+        PopupMenu sizes, defSizes;
+        for (int i = 0; i < numSizes; ++i)
+        {
+            sizes.addItem (1 + i, String (names[i]) + (i == def ? "  (default)" : ""), true, std::abs (getHeight() - sizeHeight (i)) <= 2);
+            defSizes.addItem (20 + i, names[i], true, i == def);
+        }
+        sizes.addSeparator();
+        sizes.addSubMenu ("Default size (new windows)", defSizes);
+        menu.addSubMenu ("Plugin size", sizes);
+    }
     menu.addSeparator();
 
     PopupMenu factory;
@@ -784,9 +801,12 @@ void WackdAudioProcessorEditor::showContextMenu (int learnIdx)
                 return;
 
             auto& ed = *safe;
-            if      (r == 1) ed.setScaledHeight (defaultH);
-            else if (r == 2) ed.setScaledHeight (roundToInt (baseH * 0.75f));
-            else if (r == 3) ed.setScaledHeight (baseH);
+            if      (r >= 1 && r < 1 + numSizes) ed.setScaledHeight (ed.sizeHeight (r - 1));
+            else if (r >= 20 && r < 20 + numSizes)
+            {
+                WigaWindowSize::setDefaultIndex (JucePlugin_Name, r - 20);   // toutes les nouvelles fenetres de ce plugin
+                ed.setScaledHeight (ed.sizeHeight (r - 20));                // et cette fenetre tout de suite
+            }
             else if (r == 40 || r == 41)
             {
                 if (auto* prm = ed.proc.apvts.getParameter ("stereo"))
