@@ -28,7 +28,7 @@ TMP = tempfile.mkdtemp(prefix="wackd_manual_")   # menus dessines (fichiers temp
 VERSION = "1.8.1"     # = version du plugin dans CMakeLists.txt
 
 for n, f in (("Pop", "Poppins-Regular"), ("PopL", "Poppins-Light"), ("PopM", "Poppins-Medium"), ("PopB", "Poppins-Bold"),
-             ("PopI", "Poppins-Italic"), ("Mono", "DejaVuSansMono")):
+             ("PopI", "Poppins-Italic"), ("Mono", "DejaVuSansMono"), ("DjV", "DejaVuSans")):
     pdfmetrics.registerFont(TTFont(n, os.path.join(FONTS, f + ".ttf")))
 pdfmetrics.registerFontFamily("Pop", normal="Pop", bold="PopB", italic="PopI", boldItalic="PopB")
 
@@ -174,7 +174,7 @@ T = {
      ["10", "IN", "Input jack (decorative)."], ["11", "OUT1", "Left output: dry + effect."],
      ["12", "INV. OUT2", "Right output (see \"Outputs\")."], ["13", "Footswitch", "Click to switch the effect on / off (bypass)."]],
  ctl_t="4. Controls in detail",
- ctl=[("SPEED", "Sets the LFO rate. Turning clockwise speeds up the chorus or flanger. The pot is logarithmic, like the CF7's 500 k&Omega; log pot, giving a 1:100 range. Each voice has its own range (chart below). In Wack'd mode the top of the range enters the audio band, where the modulation turns into ring-mod-like tones."),
+ ctl=[("SPEED", "Sets the LFO rate. Turning clockwise speeds up the chorus or flanger. The pot is logarithmic, like the CF7's 500 k<font name='DjV'>&Omega;</font> log pot, giving a 1:100 range. Each voice has its own range (chart below). In Wack'd mode the top of the range enters the audio band, where the modulation turns into ring-mod-like tones."),
       ("DEPTH", "Sets the width of the modulation. Clockwise, the chorus becomes more detuned and the flanger sweep wider. In Wack'd mode a fixed amount of modulation is always added (resistor R44 on the CF7), so the effect stays strong even with Depth at zero."),
       ("DELAY TIME", "Sets the base delay of the digital delay line. In Chorus, clockwise means a longer delay and a deeper, more spacious chorus (5 to 25 ms). In Flanger, counter-clockwise means a shorter delay and a higher resonance: the comb filter moves up."),
       ("REGEN.", "Sets the feedback. Clockwise adds resonance: subtle thickness in Chorus, a strong metallic \"jet\" in Flanger (up to 95 %). The feedback loop has soft saturation and high-frequency damping, so high settings stay musical."),
@@ -296,7 +296,7 @@ T = {
      ["10", "IN", "Prise d'entrée (décorative)."], ["11", "OUT1", "Sortie gauche : direct + effet."],
      ["12", "INV. OUT2", "Sortie droite (voir « Sorties »)."], ["13", "Footswitch", "Un clic active / coupe l'effet (bypass)."]],
  ctl_t="4. Les commandes en détail",
- ctl=[("SPEED", "Règle la vitesse du LFO. Dans le sens horaire, le chorus ou le flanger accélère. Le potard est logarithmique, comme le potard log 500 k&Omega; de la CF7, soit une plage de 1 à 100. Chaque voix a sa propre plage (graphique ci-dessous). En mode Wack'd, le haut de la plage entre dans le domaine audio : la modulation se transforme en sons proches du ring-mod."),
+ ctl=[("SPEED", "Règle la vitesse du LFO. Dans le sens horaire, le chorus ou le flanger accélère. Le potard est logarithmique, comme le potard log 500 k<font name='DjV'>&Omega;</font> de la CF7, soit une plage de 1 à 100. Chaque voix a sa propre plage (graphique ci-dessous). En mode Wack'd, le haut de la plage entre dans le domaine audio : la modulation se transforme en sons proches du ring-mod."),
       ("DEPTH", "Règle l'amplitude de la modulation. Dans le sens horaire, le chorus se désaccorde davantage et le balayage du flanger s'élargit. En mode Wack'd, une modulation fixe s'ajoute toujours (résistance R44 de la CF7) : l'effet reste marqué même avec Depth à zéro."),
       ("DELAY TIME", "Règle le retard de base de la ligne à retard numérique. En Chorus, sens horaire = retard plus long, chorus plus profond et spacieux (5 à 25 ms). En Flanger, sens antihoraire = retard plus court, résonance plus aiguë : le filtre en peigne monte."),
       ("REGEN.", "Règle la réinjection. Dans le sens horaire, la résonance augmente : épaississement discret en Chorus, « jet » métallique marqué en Flanger (jusqu'à 95 %). La boucle a une saturation douce et un amortissement des aigus : les réglages élevés restent musicaux."),
