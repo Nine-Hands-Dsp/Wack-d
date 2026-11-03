@@ -48,14 +48,10 @@ Sources : effectsdatabase.com (fiche et manuel CF7), mirosol.kapsi.fi (puce M501
 
 | Message | Fonction |
 |---|---|
-| CC 20 / 21 / 22 / 23 | Speed / Depth / Delay Time / Regen. |
-| CC 24 | Mode (0-63 Chorus, 64-127 Flanger) |
-| CC 25 | Krazy (0-63 Normal, 64-127 Wack'd) |
-| CC 26 | Footswitch (≥ 64 ON, < 64 OFF) |
-| CC 27 | Footswitch bascule (chaque appui) |
+| CC (MIDI Learn) | Aucun CC assigné par défaut : clic droit > MIDI > Learn (Speed, Depth, Delay Time, Regen., Mode 64+ = Flanger, Krazy 64+ = Wack'd, Footswitch ≥ 64 ON, Footswitch bascule) |
 | Program Change 1-9 | Presets d'usine |
 
-**MIDI Learn (v1.7)** : clic droit sur un potard, un inverseur ou le footswitch > « MIDI Learn: <commande> », puis bouger la pédale / appuyer sur le footswitch MIDI. La ligne d'état affiche « MIDI LEARN: move a control for … » puis « <commande> = CC n ». « Clear MIDI » retire l'assignation ; clic droit > MIDI map > « Reset MIDI to defaults » revient à la table ci-dessus. Les assignations sont sauvegardées avec le projet.
+**MIDI Learn (v1.7)** : clic droit sur un potard, un inverseur ou le footswitch > « MIDI Learn: <commande> », puis bouger la pédale / appuyer sur le footswitch MIDI. La ligne d'état affiche « MIDI LEARN: move a control for … » puis « <commande> = CC n ». « Clear MIDI » retire l'assignation ; clic droit > MIDI map > « Clear all MIDI assignments » efface toutes les assignations. Aucun CC n'est assigné par défaut. Les assignations sont sauvegardées avec le projet.
 
 Tous les paramètres sont aussi automatisables et assignables en MIDI-learn dans le DAW.
 
@@ -94,3 +90,4 @@ Référence DSP : J. O. Smith, *Physical Audio Signal Processing* (CCRMA), chapi
 ## Nouveautés v1.8
 
 - v1.8.0 : clic droit > Plugin size > Default size (new windows) : taille par défaut des nouvelles fenêtres au choix, comme dans Octopus
+- v1.8.1 : plus aucun CC MIDI assigné par défaut (tout passe par le MIDI Learn)

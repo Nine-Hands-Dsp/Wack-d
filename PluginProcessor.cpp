@@ -44,9 +44,9 @@ const WackdAudioProcessor::LearnDef& WackdAudioProcessor::learnDef (int i)
     return defs[juce::jlimit (0, numLearn - 1, i)];
 }
 
-void WackdAudioProcessor::resetMidiMap()
+void WackdAudioProcessor::clearMidiMap()
 {
-    for (int i = 0; i < numLearn; ++i) ccMap[i].store (learnDef (i).defaultCC);
+    for (int i = 0; i < numLearn; ++i) ccMap[i].store (-1);
 }
 
 //==============================================================================
@@ -70,7 +70,7 @@ WackdAudioProcessor::WackdAudioProcessor()
         pendingValue[i].store (0.0f);
         pendingSet[i].store (false);
     }
-    resetMidiMap();
+    clearMidiMap();
     startTimerHz (60);
 }
 
@@ -620,9 +620,17 @@ void WackdAudioProcessor::setStateInformation (const void* data, int sizeInBytes
         {
             auto state = juce::ValueTree::fromXml (*xml);
             currentPreset = (int) state.getProperty ("currentPreset", 0);
-            // assignations MIDI Learn (ancien projet sans ces proprietes : numeros par defaut 20 a 27)
+            // assignations MIDI Learn : aucune par defaut. Un ancien projet dont la table est
+            // exactement l'ancienne table d'usine (20 a 27, ou proprietes absentes) est vide.
+            int loaded[numLearn];
+            bool factory = true;
             for (int i = 0; i < numLearn; ++i)
-                ccMap[i].store (juce::jlimit (-1, 127, (int) state.getProperty ("cc_" + juce::String (i), learnDef (i).defaultCC)));
+            {
+                loaded[i] = juce::jlimit (-1, 127, (int) state.getProperty ("cc_" + juce::String (i), learnDef (i).legacyCC));
+                if (loaded[i] != learnDef (i).legacyCC) factory = false;
+            }
+            for (int i = 0; i < numLearn; ++i)
+                ccMap[i].store (factory ? -1 : loaded[i]);
             apvts.replaceState (state);
         }
     }

@@ -702,7 +702,7 @@ void WackdAudioProcessorEditor::addMidiMenu (PopupMenu& menu, int learnIdx)
     auto ccText = [this] (int i)
     {
         const int cc = proc.ccMap[i].load();
-        return cc >= 0 ? "CC " + String (cc) : String ("none");
+        return cc >= 0 ? "CC " + String (cc) : String (CharPointer_UTF8 ("\xe2\x80\x94"));
     };
     const int lt = proc.learnTarget.load();
 
@@ -725,7 +725,7 @@ void WackdAudioProcessorEditor::handleMidiMenu (int r)
         proc.learnTarget.store (proc.learnTarget.load() == r - 1000 ? -1 : r - 1000);   // re-cliquer annule
     else if (r >= 1100 && r < 1100 + WackdAudioProcessor::numLearn) proc.ccMap[r - 1100].store (-1);
     else if (r == 1200) proc.learnTarget.store (-1);
-    else if (r == 1201) { proc.learnTarget.store (-1); proc.resetMidiMap(); }
+    else if (r == 1201) { proc.learnTarget.store (-1); proc.clearMidiMap(); }
 }
 
 void WackdAudioProcessorEditor::showContextMenu (int learnIdx)
@@ -779,12 +779,12 @@ void WackdAudioProcessorEditor::showContextMenu (int learnIdx)
     {
         const int cc = proc.ccMap[i].load();
         midi.addItem (1000 + i, "Learn: " + String (WackdAudioProcessor::learnDef (i).name)
-                                 + " (" + (cc >= 0 ? "CC " + String (cc) : String ("none")) + ")",
+                                 + " (" + (cc >= 0 ? "CC " + String (cc) : String (CharPointer_UTF8 ("\xe2\x80\x94"))) + ")",
                       true, proc.learnTarget.load() == i);
     }
     midi.addSeparator();
     if (proc.learnTarget.load() >= 0) midi.addItem (1200, "Cancel MIDI learn");
-    midi.addItem (1201, "Reset MIDI to defaults (CC 20-27)");
+    midi.addItem (1201, "Clear all MIDI assignments");
     midi.addSeparator();
     midi.addItem (906, "Mode / Krazy: 64+ = Flanger / Wack'd",       false);
     midi.addItem (907, "Footswitch: 64+ ON / 0-63 OFF",              false);

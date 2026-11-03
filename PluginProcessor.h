@@ -128,16 +128,17 @@ public:
     };
 
     // v1.7 MIDI Learn : toutes les commandes de la facade (clic droit sur la commande)
-    // numeros par defaut = anciens CC fixes 20 a 27 (anciens projets et pedaliers inchanges)
+    // v1.8.1 : aucun CC assigne par defaut ; legacyCC = ancienne table d'usine 20 a 27,
+    // servant uniquement a reconnaitre (et vider) une table jamais modifiee dans un ancien projet
     enum LearnType { learnContinuous, learnToggle, learnSelector, learnFootswitch, learnFootToggle };
-    struct LearnDef { const char* id; const char* name; int defaultCC; int type; int positions; };
+    struct LearnDef { const char* id; const char* name; int legacyCC; int type; int positions; };
     static constexpr int numLearn = 8;
     static constexpr int numKnobs = 4;
     static const LearnDef& learnDef (int i);
     std::atomic<int> ccMap[numLearn];            // numero de CC de chaque commande, -1 = non assigne
     std::atomic<int> learnTarget { -1 };         // commande en attente d'un CC (-1 = pas de learn)
     std::atomic<int> lastLearned { -1 };         // derniere commande apprise (lue et remise a -1 par la fenetre)
-    void resetMidiMap();
+    void clearMidiMap();                         // efface toutes les assignations (-1)
 
 private:
     void handleMidi (juce::MidiBuffer& midi);
