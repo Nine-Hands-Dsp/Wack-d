@@ -233,7 +233,7 @@ WackdAudioProcessorEditor::~WackdAudioProcessorEditor()
 // Avec certains pilotes (Intel notamment) la fenetre du plugin cesse de se rafraichir alors que
 // le DAW continue de tourner. Le moteur logiciel est stable partout et largement assez rapide ici.
 //
-// Anti-gel v2 (Studio Wiga) :
+// Anti-gel v2 (NINE HANDS | DSP) :
 //  1. moteur de rendu logiciel force sur Windows, applique a chaque nouvelle fenetre hote (peer)
 //     et reverifie toutes les secondes, jamais en boucle ;
 //  2. aucun calcul lourd dans paint() : le fond est mis a la taille d'affichage par le timer seulement,
@@ -643,7 +643,7 @@ void WackdAudioProcessorEditor::paint (Graphics& g)
 }
 
 //==============================================================================
-// « STUDIO WIGA » : police du logo Studio Wiga (Montserrat Bold), imprime
+// « NINE HANDS | DSP » : police du logo NINE HANDS | DSP (Montserrat Bold), imprime
 // dans la meme encre que « Wack'd » et « flangerus »
 //==============================================================================
 void WackdAudioProcessorEditor::rebuildBrand()
@@ -653,7 +653,7 @@ void WackdAudioProcessorEditor::rebuildBrand()
     {
         GlyphArrangement ga;
         ga.addLineOfText (Font (FontOptions (brandFace).withHeight (29.0f)).withExtraKerningFactor (0.02f),
-                          "STUDIO WIGA", 0.0f, 0.0f);
+                          "NINE HANDS | DSP", 0.0f, 0.0f);
         ga.createPath (brandPath);
     }
     if (brandPath.isEmpty())
@@ -792,7 +792,7 @@ void WackdAudioProcessorEditor::showContextMenu (int learnIdx)
     menu.addSubMenu ("MIDI map", midi);
 
     menu.addSeparator();
-    menu.addItem (999, "Wack'd flangerus v" + String (JucePlugin_VersionString) + " - STUDIO WIGA", false);
+    menu.addItem (999, "Wack'd flangerus v" + String (JucePlugin_VersionString) + " - NINE HANDS | DSP", false);
 
     menu.showMenuAsync (PopupMenu::Options().withTargetComponent (this),
         [safe = Component::SafePointer<WackdAudioProcessorEditor> (this)] (int r)

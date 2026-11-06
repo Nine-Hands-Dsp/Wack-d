@@ -1,4 +1,4 @@
-# WACK'D flangerus (Studio Wiga) - notice PDF bilingue (anglais puis francais), illustree.
+# WACK'D flangerus (NINE HANDS | DSP) - notice PDF bilingue (anglais puis francais), illustree.
 # Usage : python3 tools/manual.py <fichier PDF de sortie>
 #
 # Images sources dans tools/manual_assets/ (reprises de la notice v1.7.0, rendu reel du plugin) :
@@ -73,7 +73,7 @@ def compose(menus, gap=16):
 DASH = "\u2014"
 def build_menus():
     tail = [("", "sep"), ("Factory presets", "sub"), ("Load user preset", "sub"), ("Save user preset", "sub"), ("", "sep"),
-            ("Output", "sub"), ("", "sep"), ("MIDI map", "sub"), ("", "sep"), ("Wack'd flangerus v" + VERSION + " - STUDIO WIGA", "dis")]
+            ("Output", "sub"), ("", "sep"), ("MIDI map", "sub"), ("", "sep"), ("Wack'd flangerus v" + VERSION + " - NINE HANDS | DSP", "dis")]
     # 1) clic droit sur SPEED : Plugin size > Default size (new windows)
     m1, r1 = menu_img([("MIDI Learn: Speed (" + DASH + ")", ""), ("Clear MIDI: Speed", "dis"), ("", "sep"), ("Plugin size", "sub hi")] + tail, 600)
     m2, r2 = menu_img([("60 %  (default)", "chk"), ("75 %", ""), ("100 %", ""), ("", "sep"), ("Default size (new windows)", "sub hi")], 470)
@@ -146,9 +146,9 @@ def num(v, lang):
 T = {
 "en": dict(
  lang="ENGLISH", sub="Chorus / Flanger &middot; VST3 &middot; Windows &amp; macOS", ver="User manual &middot; version " + VERSION,
- foot="Wack'd flangerus (Studio Wiga) &middot; User manual &middot; v" + VERSION,
+ foot="Wack'd flangerus (NINE HANDS | DSP) &middot; User manual &middot; v" + VERSION,
  pres_t="1. Presentation",
- pres=["<b>Wack'd flangerus</b> is a Studio Wiga VST3 plugin modelled on the <b>Ibanez CF7 Chorus/Flanger</b> from the Tone-Lok series (1999). Like the pedal, it combines a chorus and a flanger built around a digital delay chip (Mitsubishi M50198), with four knobs, a MODE switch and the famous KRAZY switch whose Wack'd position turns the pedal into a vibrato and a ring-mod-like noise machine.",
+ pres=["<b>Wack'd flangerus</b> is a NINE HANDS | DSP VST3 plugin modelled on the <b>Ibanez CF7 Chorus/Flanger</b> from the Tone-Lok series (1999). Like the pedal, it combines a chorus and a flanger built around a digital delay chip (Mitsubishi M50198), with four knobs, a MODE switch and the famous KRAZY switch whose Wack'd position turns the pedal into a vibrato and a ring-mod-like noise machine.",
        "The model was built from the original CF7 schematic: triangle LFO, speed pot law, the extra modulation injected by the Krazy switch, the equal-weight dry/effect mixers and the inverted second output. The interface reproduces the Wack'd flangerus artwork with real, animated controls."],
  feat_t="Main features",
  feat=["Chorus and flanger, each with a Normal and a Wack'd voice: four characters in one pedal.",
@@ -162,7 +162,7 @@ T = {
  inst_t="2. Installation",
  inst=[("Windows 11", "Copy <b>Wackd.vst3</b> into " + mono("C:\\Program Files\\Common Files\\VST3\\") + "."),
        ("macOS", "Unzip the download, then copy <b>Wackd.vst3</b> into " + mono("~/Library/Audio/Plug-Ins/VST3/") + " (universal binary: Intel and Apple Silicon)."),
-       ("Reaper", "Options &gt; Preferences &gt; Plug-ins &gt; VST: click <b>Re-scan</b> (or <i>Clear cache/re-scan</i> if the plugin was already installed). The plugin appears as <b>Wackd</b> by <b>Studio Wiga</b> in the FX browser."),
+       ("Reaper", "Options &gt; Preferences &gt; Plug-ins &gt; VST: click <b>Re-scan</b> (or <i>Clear cache/re-scan</i> if the plugin was already installed). The plugin appears as <b>Wackd</b> by <b>NINE HANDS | DSP</b> in the FX browser."),
        ("Build from GitHub", "Each push to the repository starts the build in the <i>Actions</i> tab (Windows and macOS); download the artifact of the latest run.")],
  ov_t="3. Interface overview", ov_cap="The numbers refer to the table below.",
  ov=[["#", "Element", "Role"], ["1", "SPEED", "LFO rate."], ["2", "DEPTH", "Modulation width."],
@@ -242,7 +242,7 @@ T = {
         "The intro tone of Limp Bizkit's \"My Way\" (2000), played on this pedal. On the record the guitar then went into an Echoplex and a clean amp: add a ~350 ms echo after the plugin to get closer."],
  user_h="User presets",
  user=["Right-click &gt; <b>Save user preset</b> &gt; User 1 to 9 stores the current settings; <b>Load user preset</b> recalls them. User presets are shared by every project and stored in:"],
- user_b=["Windows: " + mono("%APPDATA%\\Studio Wiga\\Wackd\\UserPresets.xml"), "macOS: " + mono("~/Library/Studio Wiga/Wackd/UserPresets.xml")],
+ user_b=["Windows: " + mono("%APPDATA%\\NINE HANDS | DSP\\Wackd\\UserPresets.xml"), "macOS: " + mono("~/Library/NINE HANDS | DSP/Wackd/UserPresets.xml")],
  tips_t="9. Tips",
  tips=["<b>Reaper chain</b>: guitar track &gt; tuner &gt; drive / distortion &gt; <b>Wack'd</b> (Output: Mono compatible) &gt; amp sim (Genome&hellip;) &gt; reverb. Like on a real board, the chorus / flanger goes after the drive and before the amp.",
        "<b>Low-tuned 7-string</b>: on low riffs keep Depth and Regen moderate, and Delay Time below the middle, or the low end gets seasick. Jet Flanger and Slow Deep Sweep work great on heavy palm-muted chords; Wack'd Vibrato is best on clean arpeggios and single notes.",
@@ -265,12 +265,12 @@ T = {
        ["MIDI", "MIDI Learn on 8 functions (no CC assigned by default), saved with the project, any channel"],
        ["Window", "Plugin size 60 % (minimum), 75 %, 100 %; default size for new windows selectable; resizable by the corner"],
        ["Stability", "Windows anti-freeze v2: the interface never blocks the host"], ["Version", VERSION]],
- legal="Modelled on the Ibanez CF7 schematic. Ibanez and Tone-Lok are trademarks of their owners; Wack'd flangerus is an independent personal project by Studio Wiga."),
+ legal="Modelled on the Ibanez CF7 schematic. Ibanez and Tone-Lok are trademarks of their owners; Wack'd flangerus is an independent personal project by NINE HANDS | DSP."),
 "fr": dict(
  lang="FRANÇAIS", sub="Chorus / Flanger &middot; VST3 &middot; Windows &amp; macOS", ver="Notice d'utilisation &middot; version " + VERSION,
- foot="Wack'd flangerus (Studio Wiga) &middot; Notice d'utilisation &middot; v" + VERSION,
+ foot="Wack'd flangerus (NINE HANDS | DSP) &middot; Notice d'utilisation &middot; v" + VERSION,
  pres_t="1. Présentation",
- pres=["<b>Wack'd flangerus</b> est un plugin VST3 Studio Wiga modélisé d'après la pédale <b>Ibanez CF7 Chorus/Flanger</b> de la série Tone-Lok (1999). Comme la pédale, il réunit un chorus et un flanger construits autour d'une puce de retard numérique (Mitsubishi M50198), avec quatre potards, un switch MODE et le fameux switch KRAZY dont la position Wack'd transforme la pédale en vibrato et en machine à sons proches du ring-mod.",
+ pres=["<b>Wack'd flangerus</b> est un plugin VST3 NINE HANDS | DSP modélisé d'après la pédale <b>Ibanez CF7 Chorus/Flanger</b> de la série Tone-Lok (1999). Comme la pédale, il réunit un chorus et un flanger construits autour d'une puce de retard numérique (Mitsubishi M50198), avec quatre potards, un switch MODE et le fameux switch KRAZY dont la position Wack'd transforme la pédale en vibrato et en machine à sons proches du ring-mod.",
        "Le modèle a été construit à partir du schéma d'origine de la CF7 : LFO triangle, loi du potard de vitesse, modulation ajoutée par le switch Krazy, mélangeurs direct/effet à poids égal et seconde sortie inversée. L'interface reprend le visuel Wack'd flangerus avec de vraies commandes animées."],
  feat_t="Points forts",
  feat=["Chorus et flanger, chacun avec une voix Normal et une voix Wack'd : quatre caractères dans une pédale.",
@@ -284,7 +284,7 @@ T = {
  inst_t="2. Installation",
  inst=[("Windows 11", "Copie <b>Wackd.vst3</b> dans " + mono("C:\\Program Files\\Common Files\\VST3\\") + "."),
        ("macOS", "Dézippe le téléchargement puis copie <b>Wackd.vst3</b> dans " + mono("~/Library/Audio/Plug-Ins/VST3/") + " (binaire universel : Intel et Apple Silicon)."),
-       ("Reaper", "Options &gt; Preferences &gt; Plug-ins &gt; VST : clique sur <b>Re-scan</b> (ou <i>Clear cache/re-scan</i> si le plugin était déjà installé). Le plugin apparaît sous le nom <b>Wackd</b>, fabricant <b>Studio Wiga</b>, dans la liste des effets."),
+       ("Reaper", "Options &gt; Preferences &gt; Plug-ins &gt; VST : clique sur <b>Re-scan</b> (ou <i>Clear cache/re-scan</i> si le plugin était déjà installé). Le plugin apparaît sous le nom <b>Wackd</b>, fabricant <b>NINE HANDS | DSP</b>, dans la liste des effets."),
        ("Compilation GitHub", "Chaque push sur le dépôt lance la compilation dans l'onglet <i>Actions</i> (Windows et macOS) ; télécharge l'artefact de la dernière exécution.")],
  ov_t="3. Vue d'ensemble de l'interface", ov_cap="Les numéros renvoient au tableau ci-dessous.",
  ov=[["#", "Élément", "Rôle"], ["1", "SPEED", "Vitesse du LFO."], ["2", "DEPTH", "Amplitude de la modulation."],
@@ -364,7 +364,7 @@ T = {
         "Le son de l'intro de « My Way » de Limp Bizkit (2000), joué sur cette pédale. Sur le disque, la guitare passait ensuite dans un Echoplex et un ampli clair : ajoute un écho d'environ 350 ms après le plugin pour t'en approcher."],
  user_h="Presets utilisateur",
  user=["Clic droit &gt; <b>Save user preset</b> &gt; User 1 à 9 enregistre les réglages actuels ; <b>Load user preset</b> les rappelle. Les presets utilisateur sont communs à tous les projets et stockés dans :"],
- user_b=["Windows : " + mono("%APPDATA%\\Studio Wiga\\Wackd\\UserPresets.xml"), "macOS : " + mono("~/Library/Studio Wiga/Wackd/UserPresets.xml")],
+ user_b=["Windows : " + mono("%APPDATA%\\NINE HANDS | DSP\\Wackd\\UserPresets.xml"), "macOS : " + mono("~/Library/NINE HANDS | DSP/Wackd/UserPresets.xml")],
  tips_t="9. Conseils d'utilisation",
  tips=["<b>Chaîne Reaper</b> : piste guitare &gt; accordeur &gt; overdrive / distorsion &gt; <b>Wack'd</b> (Output : Mono compatible) &gt; simulateur d'ampli (Genome&hellip;) &gt; reverb. Comme sur un vrai pedalboard, le chorus / flanger se place après la saturation et avant l'ampli.",
        "<b>7 cordes accordée grave</b> : sur les riffs graves, garde Depth et Regen modérés et Delay Time sous la moitié, sinon le bas du spectre « tangue ». Jet Flanger et Slow Deep Sweep sont superbes sur des accords saturés étouffés ; Wack'd Vibrato est à réserver aux arpèges en son clair et aux notes seules.",
@@ -387,7 +387,7 @@ T = {
        ["MIDI", "MIDI Learn sur 8 fonctions (aucun CC assigné d'office), sauvegardé avec le projet, tous canaux"],
        ["Fenêtre", "Plugin size 60 % (minimum), 75 %, 100 % ; taille d'ouverture des nouvelles fenêtres au choix ; redimensionnable par le coin"],
        ["Stabilité", "Anti-gel v2 de la fenêtre sous Windows : l'interface ne bloque jamais l'hôte"], ["Version", VERSION]],
- legal="Modélisé d'après le schéma de l'Ibanez CF7. Ibanez et Tone-Lok sont des marques de leurs propriétaires ; Wack'd flangerus est un projet personnel indépendant de Studio Wiga."),
+ legal="Modélisé d'après le schéma de l'Ibanez CF7. Ibanez et Tone-Lok sont des marques de leurs propriétaires ; Wack'd flangerus est un projet personnel indépendant de NINE HANDS | DSP."),
 }
 
 W = A4[0] - 36 * mm
@@ -478,7 +478,7 @@ def cover_bg(c, doc):
     c.setFillColor(ACC); c.rect(0, A4[1] - 3 * mm, A4[0], 3 * mm, stroke=0, fill=1); c.restoreState()
 
 doc = BaseDocTemplate(OUT, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm, topMargin=16 * mm, bottomMargin=18 * mm,
-                      title="Wack'd flangerus - User manual / Notice v" + VERSION, author="Studio Wiga")
+                      title="Wack'd flangerus - User manual / Notice v" + VERSION, author="NINE HANDS | DSP")
 doc.addPageTemplates([PageTemplate(id="cover", frames=[Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height, id="fc")], onPage=cover_bg),
                       PageTemplate(id="p", frames=[Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height, id="f")], onPage=deco)])
 en = section("en"); fr = section("fr")

@@ -1,7 +1,7 @@
-# WACK'D (Studio Wiga) — VST3
+# WACK'D (NINE HANDS | DSP) — VST3
 
 Reproduction en plugin VST3 (Windows 11 et macOS) de la pédale **Ibanez CF7 Chorus/Flanger** (série Tone-Lok, 1999).
-Usage personnel. Visuel « Wack'd flangerus » (Studio Wiga).
+Usage personnel. Visuel « Wack'd flangerus » (NINE HANDS | DSP).
 
 ## Installation via GitHub
 
@@ -40,7 +40,7 @@ Sources : effectsdatabase.com (fiche et manuel CF7), mirosol.kapsi.fi (puce M501
 - **Switchs MODE / KRAZY** : le levier se déplace réellement (gauche = Chorus / Normal, droite = Flanger / Wack'd).
 - Pas d'indication d'alimentation (DC9V) en haut de la pédale.
 - **Ligne d'état** agrandie sous la LED (texte 20 px / 15,5 px à 100 %) : elle n'apparaît que lorsqu'un potard bouge, reste 2,5 s puis s'efface en fondu.
-- **STUDIO WIGA** sous le footswitch, dans la police du logo Studio Wiga (Montserrat Bold, licence libre OFL), imprimé dans la même encre que « Wack'd » et « flangerus », avec un léger voile couleur papier dessous pour rester lisible sur le dessin.
+- **NINE HANDS | DSP** sous le footswitch, dans la police du logo NINE HANDS | DSP (Montserrat Bold, licence libre OFL), imprimé dans la même encre que « Wack'd » et « flangerus », avec un léger voile couleur papier dessous pour rester lisible sur le dessin.
 - **Prises jack** : mêmes écrous chromés que la pédale Textural (OUT1 et INV. OUT2 à gauche, IN à droite).
 - Fond noir avec les motifs de la pédale en transparence autour.
 

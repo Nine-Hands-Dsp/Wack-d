@@ -6,7 +6,7 @@
 #include <vector>
 
 //==============================================================================
-// WACK'D (Studio Wiga) — reproduction de la pedale Ibanez CF7 Chorus/Flanger
+// WACK'D (NINE HANDS | DSP) — reproduction de la pedale Ibanez CF7 Chorus/Flanger
 // (serie Tone-Lok). Voir README.md pour la documentation du circuit.
 //==============================================================================
 

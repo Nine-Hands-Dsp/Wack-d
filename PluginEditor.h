@@ -116,7 +116,7 @@ private:
     void askRepaint (juce::Rectangle<int> r);
     float modeBlend = 0.0f;      // 0 = chorus (bleu), 1 = flanger (jaune-orange)
 
-    // « STUDIO WIGA » (police du logo)
+    // « NINE HANDS | DSP » (police du logo)
     juce::Typeface::Ptr brandFace;
     juce::Path brandPath;
 
