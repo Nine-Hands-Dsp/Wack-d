@@ -63,9 +63,9 @@ Tous les paramètres sont aussi automatisables et assignables en MIDI-learn dans
 
 ## Placement dans Reaper (avant / après un simulateur d'ampli)
 
-La vraie CF7 sort sur deux jacks : OUT1 = direct + effet, OUT2 = direct − effet (effet inversé). Les versions ≤ 1.4 reproduisaient ça tel quel. Or un simulateur d'ampli comme Genome (Two Notes) traite la guitare en **mono** : il additionne gauche + droite, l'effet inversé s'annule et il ne reste que le son direct (en Wack'd, où il n'y a pas de son direct, le son disparaît complètement). Placé **après** Genome, le plugin recevait déjà le son d'ampli et sortait en stéréo, donc ça marchait. Arc, Freeze Shimmer, Textural et Ring Think n'ont pas de sortie inversée, d'où la différence.
+La vraie CF7 sort sur deux jacks : OUT1 = direct + effet, OUT2 = direct − effet (effet inversé). Les versions ≤ 1.4 reproduisaient ça tel quel. Or beaucoup de simulateurs d'ampli traitent la guitare en **mono** : il additionne gauche + droite, l'effet inversé s'annule et il ne reste que le son direct (en Wack'd, où il n'y a pas de son direct, le son disparaît complètement). Placé **après** le simulateur d'ampli, le plugin recevait déjà le son d'ampli et sortait en stéréo, donc ça marchait. Arc, Freeze Shimmer, Textural et Ring Think n'ont pas de sortie inversée, d'où la différence.
 
-Depuis la v1.5, la sortie par défaut est **Mono compatible** : la droite utilise une seconde lecture du retard décalée de 90° au lieu de l'inversion, ce qui garde la largeur stéréo sans annulation. Le plugin se place donc **avant** Genome comme les autres. L'option **CF7 stereo** reste disponible (clic droit > Output) pour un usage après l'ampli.
+Depuis la v1.5, la sortie par défaut est **Mono compatible** : la droite utilise une seconde lecture du retard décalée de 90° au lieu de l'inversion, ce qui garde la largeur stéréo sans annulation. Le plugin se place donc **avant** Ampire / Impulse comme les autres. L'option **CF7 stereo** reste disponible (clic droit > Output) pour un usage après l'ampli.
 
 ## Moteur audio (v1.5, modélisé d'après le schéma)
 

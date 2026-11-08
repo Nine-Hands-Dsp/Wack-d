@@ -25,7 +25,7 @@ FONTS = os.path.join(AS, "fonts")
 OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "docs", "Wackd_Manual_EN-FR.pdf")
 import tempfile
 TMP = tempfile.mkdtemp(prefix="wackd_manual_")   # menus dessines (fichiers temporaires)
-VERSION = "1.8.1"     # = version du plugin dans CMakeLists.txt
+VERSION = "1.8.2"     # = version du plugin dans CMakeLists.txt
 
 for n, f in (("Pop", "Poppins-Regular"), ("PopL", "Poppins-Light"), ("PopM", "Poppins-Medium"), ("PopB", "Poppins-Bold"),
              ("PopI", "Poppins-Italic"), ("Mono", "DejaVuSansMono"), ("DjV", "DejaVuSans")):
@@ -196,7 +196,7 @@ T = {
  led_cap="Left: Chorus (ice blue). Right: Flanger (amber). The switch levers move with the selected position.",
  out_h="Outputs and placement in your DAW",
  out=["The real CF7 has two outputs: OUT1 = dry + effect and OUT2 = dry &minus; effect (effect inverted). In stereo this sounds very wide. But if the two channels are summed to mono, the inverted effect cancels the normal one and only the dry signal is left. In Wack'd mode, where there is no dry signal, the sound disappears completely.",
-      "Many amp simulators (Two Notes Genome, for example) process the guitar in mono: they sum left and right. Choose the output in the right-click menu, <b>Output</b> (saved with your project):"],
+      "Many amp simulators process the guitar in mono: they sum left and right. Choose the output in the right-click menu, <b>Output</b> (saved with your project):"],
  out_b=["<b>Mono compatible</b> (default): the right channel reads the delay a second time with the LFO shifted by 90&deg; instead of inverting it. Stereo width is kept and nothing cancels in mono. Place Wack'd <b>before</b> the amp sim, like your other pedals.",
         "<b>CF7 stereo: OUT2 inverted</b>: the original behaviour. Use it only <b>after</b> the amp sim, on a stereo track."],
  midi_t="6. MIDI",
@@ -244,7 +244,7 @@ T = {
  user=["Right-click &gt; <b>Save user preset</b> &gt; User 1 to 9 stores the current settings; <b>Load user preset</b> recalls them. User presets are shared by every project and stored in:"],
  user_b=["Windows: " + mono("%APPDATA%\\NINE HANDS | DSP\\Wackd\\UserPresets.xml"), "macOS: " + mono("~/Library/NINE HANDS | DSP/Wackd/UserPresets.xml")],
  tips_t="9. Tips",
- tips=["<b>Reaper chain</b>: guitar track &gt; tuner &gt; drive / distortion &gt; <b>Wack'd</b> (Output: Mono compatible) &gt; amp sim (Genome&hellip;) &gt; reverb. Like on a real board, the chorus / flanger goes after the drive and before the amp.",
+ tips=["<b>Reaper chain</b>: guitar track &gt; tuner &gt; drive / distortion &gt; <b>Wack'd</b> (Output: Mono compatible) &gt; amp sim (Ampire, Impulse&hellip;) &gt; reverb. Like on a real board, the chorus / flanger goes after the drive and before the amp.",
        "<b>Low-tuned 7-string</b>: on low riffs keep Depth and Regen moderate, and Delay Time below the middle, or the low end gets seasick. Jet Flanger and Slow Deep Sweep work great on heavy palm-muted chords; Wack'd Vibrato is best on clean arpeggios and single notes.",
        "Start with Classic Chorus and only move Depth: on the CF7 a little depth goes a long way.",
        "Wack'd has no dry signal: it sounds best on single notes and arpeggios, and on clean sounds.",
@@ -318,7 +318,7 @@ T = {
  led_cap="À gauche : Chorus (bleu glace). À droite : Flanger (jaune-orangé). Les leviers des switchs suivent la position choisie.",
  out_h="Sorties et placement dans le DAW",
  out=["La vraie CF7 a deux sorties : OUT1 = direct + effet et OUT2 = direct &minus; effet (effet inversé). En stéréo, c'est très large. Mais si les deux canaux sont additionnés en mono, l'effet inversé annule l'effet normal et il ne reste que le son direct. En mode Wack'd, sans son direct, le son disparaît complètement.",
-      "Beaucoup de simulateurs d'ampli (Two Notes Genome par exemple) traitent la guitare en mono : ils additionnent gauche et droite. Choisis la sortie dans le menu du clic droit, <b>Output</b> (enregistré avec le projet) :"],
+      "Beaucoup de simulateurs d'ampli traitent la guitare en mono : ils additionnent gauche et droite. Choisis la sortie dans le menu du clic droit, <b>Output</b> (enregistré avec le projet) :"],
  out_b=["<b>Mono compatible</b> (par défaut) : le canal droit relit le retard une seconde fois avec un LFO décalé de 90&deg; au lieu de l'inverser. La largeur stéréo est conservée et rien ne s'annule en mono. Place Wack'd <b>avant</b> le simulateur d'ampli, comme tes autres pédales.",
         "<b>CF7 stereo: OUT2 inverted</b> : le comportement d'origine. À utiliser uniquement <b>après</b> le simulateur d'ampli, sur une piste stéréo."],
  midi_t="6. MIDI",
@@ -366,7 +366,7 @@ T = {
  user=["Clic droit &gt; <b>Save user preset</b> &gt; User 1 à 9 enregistre les réglages actuels ; <b>Load user preset</b> les rappelle. Les presets utilisateur sont communs à tous les projets et stockés dans :"],
  user_b=["Windows : " + mono("%APPDATA%\\NINE HANDS | DSP\\Wackd\\UserPresets.xml"), "macOS : " + mono("~/Library/NINE HANDS | DSP/Wackd/UserPresets.xml")],
  tips_t="9. Conseils d'utilisation",
- tips=["<b>Chaîne Reaper</b> : piste guitare &gt; accordeur &gt; overdrive / distorsion &gt; <b>Wack'd</b> (Output : Mono compatible) &gt; simulateur d'ampli (Genome&hellip;) &gt; reverb. Comme sur un vrai pedalboard, le chorus / flanger se place après la saturation et avant l'ampli.",
+ tips=["<b>Chaîne Reaper</b> : piste guitare &gt; accordeur &gt; overdrive / distorsion &gt; <b>Wack'd</b> (Output : Mono compatible) &gt; simulateur d'ampli (Ampire, Impulse&hellip;) &gt; reverb. Comme sur un vrai pedalboard, le chorus / flanger se place après la saturation et avant l'ampli.",
        "<b>7 cordes accordée grave</b> : sur les riffs graves, garde Depth et Regen modérés et Delay Time sous la moitié, sinon le bas du spectre « tangue ». Jet Flanger et Slow Deep Sweep sont superbes sur des accords saturés étouffés ; Wack'd Vibrato est à réserver aux arpèges en son clair et aux notes seules.",
        "Pars de Classic Chorus et ne bouge que Depth : sur la CF7, un peu de profondeur suffit souvent.",
        "Wack'd n'a pas de son direct : il sonne mieux sur des notes seules, des arpèges et des sons clairs.",
