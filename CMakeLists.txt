@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.22)
 set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "")
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "")
 
-project(WACKD VERSION 2.0.1 LANGUAGES C CXX)
+project(WACKD VERSION 2.0.2 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -25,7 +25,7 @@ juce_add_plugin(Wackd
     PLUGIN_CODE                 Wkcf
     FORMATS                     VST3
     PRODUCT_NAME                "Wackd"
-    VERSION                     2.0.1
+    VERSION                     2.0.2
     IS_SYNTH                    FALSE
     NEEDS_MIDI_INPUT            TRUE
     NEEDS_MIDI_OUTPUT           FALSE
@@ -41,6 +41,7 @@ juce_add_binary_data(WackdData SOURCES
     led_blue.png led_amber.png
     bars_blue.png bars_amber.png
     halo_blue.png halo_amber.png
+    bloom_blue.png bloom_amber.png
     slide_left.png slide_right.png
     knob_shadow.png knob_crown.png knob_marker.png knob_highlight.png
     Poppins-Regular.ttf Poppins-Medium.ttf Poppins-SemiBold.ttf Poppins-Bold.ttf

@@ -140,7 +140,7 @@ def background():
     jr = grad(jk.rotate(-90, expand=True), 1.08, 0.86)
     jl = grad(jk.rotate(90, expand=True), 1.08, 0.86)
     img.alpha_composite(jr, (int(round(X0 + BW - 2)), int(round(J['in'] - jr.height / 2))))
-    for y in (J['out1'], J['out2']):
+    for y in (J['out1'], J['out2'] + 19):          # centre du jack OUT2 aligne sur sa fleche (OUT2), pas sur le bloc INV. / OUT2
         img.alpha_composite(jl, (int(round(X0 - jl.width + 2)), int(round(y - jl.height / 2))))
     # voile papier sous les inscriptions
     tl = Image.new('RGBA', (W, H), (0, 0, 0, 0)); draw_texts(ImageDraw.Draw(tl))
@@ -223,6 +223,21 @@ def main():
             o[..., 3] = np.clip(E[hy0:hy1, hx0:hx1], 0, 1) * ba[hy0:hy1, hx0:hx1, 0] * 255
             strip[j * hh:(j + 1) * hh] = o.astype(np.uint8)
         Image.fromarray(strip).save(out(f'halo_{name}.png'), optimize=True)
+        # bloom (effet glow) : lueur serree par-dessus les barres et la LED allumees, qui deborde sur les fentes et la bague ;
+        # couleur de la lumiere eclaircie, moins dense au coeur pour laisser voir la source ; dose par Glow comme le halo
+        bloom = np.zeros((hh * 10, hw, 4), np.uint8)
+        lc = np.clip(np.array(col, np.float32) * 0.75 + 255 * 0.25, 0, 255)
+        for j, m in enumerate(light_masks()):
+            if j == 0:      # LED : lueur autour de la lentille, sur la bague
+                m = np.zeros_like(m); cv2.circle(m, (int(L['led'][0]), int(L['led'][1])), int(L['ledR'] * 0.62), 1.0, -1)
+            g = cv2.GaussianBlur(m, (0, 0), 3.0) * 1.0 + cv2.GaussianBlur(m, (0, 0), 8.0) * 1.0 + cv2.GaussianBlur(m, (0, 0), 18.0) * 0.6 + cv2.GaussianBlur(m, (0, 0), 34.0) * (0.45 if j == 0 else 0.0)
+            core = cv2.GaussianBlur(m, (0, 0), 2.0)
+            a = np.clip(g, 0, 1) * (1 - 0.6 * core)
+            o = np.zeros((hh, hw, 4), np.float32)
+            o[..., :3] = lc
+            o[..., 3] = np.clip(a[hy0:hy1, hx0:hx1], 0, 1) * ba[hy0:hy1, hx0:hx1, 0] * 255
+            bloom[j * hh:(j + 1) * hh] = o.astype(np.uint8)
+        Image.fromarray(bloom).save(out(f'bloom_{name}.png'), optimize=True)
         bars_layer(name).crop((bx0, by0, bx1, by1)).save(out(f'bars_{name}.png'), optimize=True)
         # LED allumee : la lentille recoit sa propre lumiere (comme l'apercu valide), detouree sur la bague
         ls = led_sprite(name); lx, ly = L['led']

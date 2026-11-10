@@ -28,6 +28,8 @@ WackdAudioProcessorEditor::WackdAudioProcessorEditor (WackdAudioProcessor& p)
     barsImg[1]  = png (BinaryData::bars_amber_png, BinaryData::bars_amber_pngSize);
     haloImg[0]  = png (BinaryData::halo_blue_png,  BinaryData::halo_blue_pngSize);
     haloImg[1]  = png (BinaryData::halo_amber_png, BinaryData::halo_amber_pngSize);
+    bloomImg[0] = png (BinaryData::bloom_blue_png,  BinaryData::bloom_blue_pngSize);
+    bloomImg[1] = png (BinaryData::bloom_amber_png, BinaryData::bloom_amber_pngSize);
     slideImg[0] = png (BinaryData::slide_left_png,  BinaryData::slide_left_pngSize);
     slideImg[1] = png (BinaryData::slide_right_png, BinaryData::slide_right_pngSize);
 
@@ -473,6 +475,21 @@ void WackdAudioProcessorEditor::drawLights (Graphics& g)
         if (lvl <= 0.003f || ! ledImg[c].isValid()) continue;
         g.setOpacity (jmin (1.0f, lvl));
         g.drawImage (ledImg[c], lr);
+    }
+    // 4. effet glow : lueur serree par-dessus la LED et les barres allumees (dosee par Glow, comme le halo)
+    for (int c = 0; c < 2; ++c)
+    {
+        const auto& im = bloomImg[c];
+        if (wColour[c] <= 0.003f || ! im.isValid()) continue;
+        const int lw = im.getWidth(), lh = im.getHeight() / 10;
+        for (int j = 0; j < 10; ++j)
+        {
+            const float lvl = (j == 0 ? ledLevel : barFill[j - 1]) * glow * wColour[c];
+            if (lvl <= 0.003f) continue;
+            g.setOpacity (jmin (1.0f, lvl));
+            g.drawImage (im, roundToInt (hr.getX()), roundToInt (hr.getY()), roundToInt (hr.getWidth()), roundToInt (hr.getHeight()),
+                         0, j * lh, lw, lh);
+        }
     }
     g.setOpacity (1.0f);
 }

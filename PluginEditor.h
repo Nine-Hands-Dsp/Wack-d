@@ -84,7 +84,7 @@ private:
     juce::Path printPath;                       // serigraphie (unites du plugin)
     juce::Rectangle<float> labelHit[4];         // CHORUS, FLANGER, NORMAL, WACK'D
 
-    juce::Image background, bgScaled, ledImg[2], barsImg[2], haloImg[2], slideImg[2];
+    juce::Image background, bgScaled, ledImg[2], barsImg[2], haloImg[2], bloomImg[2], slideImg[2];
     int cacheW = 0, cacheH = 0;
     float cacheScale = 0.0f, forcedScale = 0.0f;
     int resizeSettle = 0;
