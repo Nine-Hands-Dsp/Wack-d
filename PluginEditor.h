@@ -1,68 +1,17 @@
 #pragma once
 
 #include "PluginProcessor.h"
+#include "Layout.h"
+#include "NHKnob.h"
+#include "NineHandsMenu.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 
 //==============================================================================
-// Potard : filmstrip haute definition (calotte bronze usinee + jupe moletee),
-// lumiere fixe en haut a gauche ; repere et moletage tournent avec la valeur
-//==============================================================================
-class NickelKnobLookAndFeel : public juce::LookAndFeel_V4
-{
-public:
-    void drawRotarySlider (juce::Graphics&, int x, int y, int w, int h,
-                           float pos, float startAngle, float endAngle, juce::Slider&) override;
-    juce::Image strip;   // filmstrip verticale : 128 images carrees
-};
-
-//==============================================================================
-// Interrupteur a glissiere (MODE / KRAZY)
-//==============================================================================
-class SlideSwitch : public juce::Component
-{
-public:
-    SlideSwitch (juce::RangedAudioParameter& p, juce::Image left, juce::Image right);
-    void paint (juce::Graphics&) override;
-    void mouseDown (const juce::MouseEvent&) override;
-
-private:
-    bool value = false;
-    juce::Image spriteLeft, spriteRight;   // levier a gauche / a droite
-    juce::ParameterAttachment attachment;
-};
-
-//==============================================================================
-// Zone cliquable du footswitch (dessine sur l'image de fond)
-//==============================================================================
-class FootSwitchArea : public juce::Component
-{
-public:
-    explicit FootSwitchArea (juce::RangedAudioParameter& p);
-    void paint (juce::Graphics&) override;
-    void mouseDown (const juce::MouseEvent&) override;
-    void mouseUp (const juce::MouseEvent&) override;
-    bool hitTest (int x, int y) override;
-    bool isOn() const { return value; }
-
-private:
-    bool value = true;
-    bool pressed = false;
-    juce::ParameterAttachment attachment;
-};
-
-//==============================================================================
-// Transmet le clic droit des commandes vers le menu de l'editeur
-//==============================================================================
-struct RightClickForwarder : public juce::MouseListener
-{
-    std::function<void (juce::Component*)> callback;    // composant clique : menu MIDI Learn de cette commande
-    void mouseDown (const juce::MouseEvent& e) override
-    {
-        if (e.mods.isPopupMenu() && callback)
-            callback (e.eventComponent);
-    }
-};
-
+// WACK'D v2 (NINE HANDS | DSP) : pedale simple, fond 1230 x 1800 px plein cadre (repere 615 x 900, Layout.h,
+// genere par tools/make_art.py). Le fond contient coque, jacks, fentes des inverseurs, LED et barres eteintes,
+// footswitch ; l'editeur dessine par-dessus : halos (doses par Glow), barres et LED allumees, selecteurs,
+// serigraphie vectorielle (Poppins), logo NINE HANDS | DSP, pastille presets / ligne d'etat.
+// Les 4 potards sont des composants nh::Knob (calques qui tournent ensemble, flou de mouvement).
 //==============================================================================
 class WackdAudioProcessorEditor : public juce::AudioProcessorEditor,
                                   private juce::Timer
@@ -73,87 +22,100 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
-    void mouseDown (const juce::MouseEvent&) override;
     void parentHierarchyChanged() override;
     void visibilityChanged() override;
 
-    // Repere de reference (100 %) ; taille par defaut = taille minimale
-    static constexpr int baseW = 760;
-    static constexpr int baseH = 958;
-    static constexpr int defaultH = 493;
-    static constexpr int numSizes = 3;          // 60 % (defaut d'origine) / 75 % / 100 %
+    void mouseDown (const juce::MouseEvent&) override;
+    void mouseUp (const juce::MouseEvent&) override;
+    void mouseMove (const juce::MouseEvent&) override;
+    void mouseExit (const juce::MouseEvent&) override;
+    void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
+
+    static constexpr float baseW = layout::frameW, baseH = layout::frameH;
+    static constexpr int numSizes = 3;                          // 60 % (defaut) / 75 % / 100 %
+    static constexpr int heightDefault = 493, heightMax = 1437;
     static int sizeHeight (int idx);
+    void setWindowHeight (int h);
+
+    // outil de rendu (captures) : echelle forcee, etat lumineux immediat
+    void forceRenderScale (float sc);
+    void settleForCapture();
+    void setGlowPercent (int pc);
+    void flash (const juce::String& text, double seconds = 2.5);
+    void setMeterKnob (int i) { meterKnob = i; }
 
 private:
     void timerCallback() override;
     void useSoftwareRenderer();
-    void showContextMenu (int learnIdx = -1);     // learnIdx >= 0 : clic droit sur une commande (MIDI Learn en tete du menu)
-    void addMidiMenu (juce::PopupMenu& menu, int learnIdx);
-    void handleMidiMenu (int r);
-    void setScaledHeight (int h);
-    void updateBars (double dt);
-    void drawLedAndBars (juce::Graphics&);
-    void drawStatus (juce::Graphics&);
-    void drawBrand (juce::Graphics&);
-    void rebuildBrand();
-    juce::String buildStatusLine() const;
-    juce::String buildPresetLine() const;
-    juce::Rectangle<int> scaled (juce::Rectangle<float> r) const;
+    float physicalScale() const;
+    void askRepaint (juce::Rectangle<float> unitsRect);
+    void rebuildCaches (float sc = 0.0f);
+    float k() const { return (float) getHeight() / baseH; }
+    juce::Point<float> toUnits (juce::Point<float> p) const { return p / k(); }
+
+    enum class Hit { none, mode, modeL, modeR, krazy, krazyL, krazyR, foot, presetPrev, presetName, presetNext };
+    Hit hitAt (juce::Point<float> u) const;
+
+    void setParam (const juce::String& id, float plain);
+    bool flag (const char* id) const { return proc.apvts.getRawParameterValue (id)->load() > 0.5f; }
+    float value (const char* id) const { return proc.apvts.getRawParameterValue (id)->load(); }
+    juce::String knobText (int i) const;
+    juce::String presetLine() const;
+    void loadFactory (int i);
+    void loadUser (int slot);
+    void snapshotPreset();
+    bool editedSincePreset() const;
+    void stepPreset (int delta);
+    void showPresetMenu();
+    void showContextMenu (int learnIdx = -1);
+    void buildPrint();
+    void updateMeter();
+
+    void drawLights (juce::Graphics&);
+    void drawSwitches (juce::Graphics&);
+    void drawPrint (juce::Graphics&);
+    void drawFoot (juce::Graphics&);
+    void drawBar (juce::Graphics&);
 
     WackdAudioProcessor& proc;
-    NickelKnobLookAndFeel lnf;
-    RightClickForwarder rightClickFwd;
-    juce::Image background, barsLit, barsLitAmber;
-    // anti-gel v2 : fond deja a la taille d'affichage (refait par le timer), suivi de la fenetre hote et des redessins
-    juce::Image bgScaled;
+    NineHandsMenu::MenuLnf menuLnf;
+    juce::Typeface::Ptr regularFace, mediumFace, semiFace, boldFace;
+    std::unique_ptr<juce::Drawable> logo;
+    juce::Path printPath;                       // serigraphie (unites du plugin)
+    juce::Rectangle<float> labelHit[4];         // CHORUS, FLANGER, NORMAL, WACK'D
+
+    juce::Image background, bgScaled, ledImg[2], barsImg[2], haloImg[2], slideImg[2];
     int cacheW = 0, cacheH = 0;
-    float cacheScale = 0.0f;
+    float cacheScale = 0.0f, forcedScale = 0.0f;
     int resizeSettle = 0;
     void* lastPeer = nullptr;
-    double lastPaintMs = 0.0, repaintAskedMs = 0.0, lastScaleCheckMs = 0.0, lastRendererCheckMs = 0.0;
-    void rebuildCaches (float scale = 0.0f);
-    float physicalScale() const;
-    void askRepaint (juce::Rectangle<int> r);
-    float modeBlend = 0.0f;      // 0 = chorus (bleu), 1 = flanger (jaune-orange)
+    double lastPaintMs = 0.0, repaintAskedMs = 0.0, lastScaleCheckMs = 0.0, lastRendererCheckMs = 0.0, lastGlowCheckMs = 0.0;
 
-    // « NINE HANDS | DSP » (police du logo)
-    juce::Typeface::Ptr brandFace;
-    juce::Path brandPath;
+    std::unique_ptr<nh::Knob> knobs[4];
 
-
-    juce::Slider speed, depth, delay, regen;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> aSpeed, aDepth, aDelay, aRegen;
-
-    SlideSwitch modeSwitch, krazySwitch;
-    FootSwitchArea footswitch;
-
-    // Animation LED / barres
+    // etat affiche
     static constexpr int numBars = 9;
-    float barFill[numBars] {};
-    float barSpark[numBars] {};
-    float ledFlicker = 1.0f;
-    double animPhase = 0.0;
-    juce::Random rng;
-    double lastTime = 0.0;
+    float glow = 1.0f;                          // reglage Glow (1 = 100 %)
+    float ledLevel = 1.0f, amber = 0.0f;        // amber : 0 = chorus (bleu glace), 1 = flanger (jaune-orange)
+    float meterLevel = 0.0f, barFill[numBars] {};
+    int meterKnob = -1;                         // dernier potard tourne (-1 = moyenne des 4)
+    bool footDown = false;
+    Hit hover = Hit::none;
 
-    juce::String lastStatus, lastPreset;
-    float lastKnobs[4] { -1.0f, -1.0f, -1.0f, -1.0f };
+    // pastille unique : barre de presets au repos, ligne d'etat pendant les reglages (fondu croise)
+    juce::String statusText, presetText;
     double statusUntil = 0.0;
     float statusAlpha = 0.0f;
-    int   meterKnob = -1;        // dernier potard tourne (-1 = moyenne)
-    float meterLevel = 0.0f;
-    int lastMidiCount = 0;
-    int midiFlash = 0;
+    float lastKnob[4] { -1.0f, -1.0f, -1.0f, -1.0f };
+    bool lastMode = false, lastKrazy = false, lastOn = true, lastStereo = false;
+    int lastPreset = -999;
+    float presetSnap[6] {};
 
-    // MIDI Learn : message dans la ligne d'etat (attente, puis « <Commande> = CC n » 2 s)
-    juce::String learnLine;
-    double learnLineUntil = 0.0;
-
-    // dernier etat reellement dessine : on ne redessine une zone que si elle a change
-    float drawnBarFill[numBars], drawnBarSpark[numBars];
-    float drawnFlicker = -1.0f, drawnLedBlend = -1.0f, drawnStatusAlpha = -1.0f, drawnStatusBlend = -1.0f;
-    int   drawnLedOn = -1, drawnMidiFlash = -1;
-    juce::String drawnStatusText, drawnPresetText;
+    // dernier etat dessine (on ne redessine une zone que si elle a change)
+    float dLed = -1.0f, dAmber = -1.0f, dGlow = -1.0f, dStatus = -1.0f, dBars[numBars];
+    bool dMode = false, dKrazy = false, dFootDown = false, dFirst = true;
+    Hit dHover = Hit::none;
+    juce::String dStatusText, dPresetText;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WackdAudioProcessorEditor)
 };

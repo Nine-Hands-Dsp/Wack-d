@@ -1,246 +1,88 @@
 #include "PluginEditor.h"
-#include "WigaWindowSize.h"
 #include "BinaryData.h"
+#include "WigaWindowSize.h"
+#include "NineHandsGlow.h"
 
 using namespace juce;
 
 namespace
 {
-    Font font (float h, bool bold = true)
-    {
-        return Font (FontOptions (h, bold ? Font::bold : Font::plain));
-    }
-
-    // Direction de la lumiere (haut-gauche), dans le repere ecran (y vers le bas)
-    const float lightAngle = -2.35619f;                 // atan2(-1, -1)
-    const Point<float> lightVec { -0.7071f, -0.7071f };
-
-    inline float lit (float screenAngle)                // 0 (ombre) .. 1 (face a la lumiere)
-    {
-        return 0.5f + 0.5f * std::cos (screenAngle - lightAngle);
-    }
-
-    // Positions dans le repere de reference 760 x 1080 (visuel Wack'd sur fond noir)
-    const float knobY = 148.0f;
-    const float knobX[4] = { 169.5f, 311.5f, 454.0f, 597.0f };   // centres des potards
-    const float knobR = 56.0f;                                   // rayon de la jupe moletee
-    const float knobStripHalf = 1.20f;                           // marge de l'image (ombre)
-    const int   knobFrames = 128;
-
-    const Rectangle<float> modeRect  { 179.0f, 317.0f, 83.0f, 40.0f };
-    const Rectangle<float> krazyRect { 499.0f, 317.0f, 83.0f, 40.0f };
-    const Point<float>     ledPos    { 379.5f, 334.5f };
-    const Rectangle<float> barsArea  { 319.0f, 368.0f, 121.0f, 57.0f };
-    const float slots[9][4] =
-    {
-        { 327.0f, 376.0f, 335.5f, 415.5f }, { 339.5f, 385.0f, 347.5f, 415.5f }, { 351.5f, 390.5f, 359.5f, 415.5f },
-        { 363.5f, 394.0f, 371.5f, 415.5f }, { 375.5f, 395.0f, 383.5f, 415.5f }, { 387.5f, 394.0f, 395.5f, 415.5f },
-        { 399.5f, 390.5f, 407.0f, 415.0f }, { 412.0f, 384.0f, 419.5f, 415.5f }, { 424.0f, 376.0f, 431.5f, 415.5f }
-    };
-    const Rectangle<float> statusRect{ 149.5f, 430.0f, 460.0f, 58.0f };
-    const Point<float>     footPos   { 379.0f, 818.0f };
-    const float            footR     = 50.0f;
-    const Rectangle<float> brandRect { 259.0f, 871.0f, 240.0f, 34.0f };
-
-    const Colour iceCore  (0xffeafaff);
-    const Colour iceMid   (0xffa9e9ff);
-    const Colour iceDeep  (0xff4bb8e8);
-    // flanger : jaune-orange, meme intensite que le bleu glace
-    const Colour ambCore  (0xfffff6e2);
-    const Colour ambMid   (0xffffc25c);
-    const Colour ambDeep  (0xffec8a16);
+    const Colour ink (0xff24231d);                  // encre de la serigraphie (comme « Wack'd »)
+    const Colour pillOut (0xff141414), pillRim (0xff969696), pillFace (0xff0a0a0b), pillInk (0xffeef1f5), pillArrow (0xff969696);
+    const Colour menuAccent (0xff78d2f5);           // pastille des en-tetes de menu (bleu glace de la LED)
+    constexpr float arrowW = 34.0f;
+    const char* knobIds[4]   = { "speed", "depth", "delay", "regen" };
+    const char* knobNames[4] = { "Speed", "Depth", "Delay Time", "Regen." };
 }
 
-//==============================================================================
-// POTARD
-//==============================================================================
-void NickelKnobLookAndFeel::drawRotarySlider (Graphics& g, int x, int y, int w, int h,
-                                              float pos, float, float, Slider&)
-{
-    // Filmstrip haute definition (128 images) : calotte bronze usinee dont le reflet
-    // reste face a la lumiere, repere argente et moletage qui tournent avec la valeur.
-    if (! strip.isValid())
-        return;
+static Image png (const void* d, int n) { return ImageCache::getFromMemory (d, n); }
 
-    const int fs = strip.getWidth();
-    const int frame = jlimit (0, knobFrames - 1, roundToInt (pos * (float) (knobFrames - 1)));
-
-    g.setImageResamplingQuality (Graphics::highResamplingQuality);
-    g.drawImage (strip, x, y, w, h, 0, frame * fs, fs, fs);
-}
-
-//==============================================================================
-// INTERRUPTEUR A GLISSIERE
-//==============================================================================
-SlideSwitch::SlideSwitch (RangedAudioParameter& p, Image left, Image right)
-    : spriteLeft (left), spriteRight (right),
-      attachment (p, [this] (float v) { value = v > 0.5f; repaint(); })
-{
-    attachment.sendInitialUpdate();
-    setMouseCursor (MouseCursor::PointingHandCursor);
-}
-
-void SlideSwitch::paint (Graphics& g)
-{
-    // levier a gauche = CHORUS / NORMAL, levier a droite = FLANGER / WACK'D
-    const auto& img = value ? spriteRight : spriteLeft;
-    if (! img.isValid())
-        return;
-    g.setImageResamplingQuality (Graphics::highResamplingQuality);
-    g.drawImage (img, getLocalBounds().toFloat(), RectanglePlacement::stretchToFit);
-}
-
-void SlideSwitch::mouseDown (const MouseEvent& e)
-{
-    if (e.mods.isPopupMenu())
-        return;
-    attachment.setValueAsCompleteGesture (value ? 0.0f : 1.0f);
-}
-
-//==============================================================================
-// FOOTSWITCH
-//==============================================================================
-FootSwitchArea::FootSwitchArea (RangedAudioParameter& p)
-    : attachment (p, [this] (float v) { value = v > 0.5f; if (auto* par = getParentComponent()) par->repaint(); })
-{
-    attachment.sendInitialUpdate();
-    setMouseCursor (MouseCursor::PointingHandCursor);
-}
-
-bool FootSwitchArea::hitTest (int x, int y)
-{
-    const auto c = getLocalBounds().toFloat().getCentre();
-    return c.getDistanceFrom ({ (float) x, (float) y }) <= (float) getWidth() * 0.5f;
-}
-
-void FootSwitchArea::paint (Graphics& g)
-{
-    if (pressed)
-    {
-        g.setColour (Colours::black.withAlpha (0.22f));
-        g.fillEllipse (getLocalBounds().toFloat().reduced ((float) getWidth() * 0.22f));
-    }
-}
-
-void FootSwitchArea::mouseDown (const MouseEvent& e)
-{
-    if (e.mods.isPopupMenu())
-        return;
-    pressed = true;
-    repaint();
-    attachment.setValueAsCompleteGesture (value ? 0.0f : 1.0f);
-}
-
-void FootSwitchArea::mouseUp (const MouseEvent&)
-{
-    pressed = false;
-    repaint();
-}
-
-//==============================================================================
-// EDITEUR
 //==============================================================================
 WackdAudioProcessorEditor::WackdAudioProcessorEditor (WackdAudioProcessor& p)
-    : AudioProcessorEditor (&p), proc (p),
-      modeSwitch  (*p.apvts.getParameter ("mode"),
-                   ImageCache::getFromMemory (BinaryData::mode_sw_png,    BinaryData::mode_sw_pngSize),
-                   ImageCache::getFromMemory (BinaryData::mode_sw_r_png,  BinaryData::mode_sw_r_pngSize)),
-      krazySwitch (*p.apvts.getParameter ("krazy"),
-                   ImageCache::getFromMemory (BinaryData::krazy_sw_png,   BinaryData::krazy_sw_pngSize),
-                   ImageCache::getFromMemory (BinaryData::krazy_sw_r_png, BinaryData::krazy_sw_r_pngSize)),
-      footswitch  (*p.apvts.getParameter ("active"))
+    : AudioProcessorEditor (p), proc (p)
 {
-    background = ImageCache::getFromMemory (BinaryData::background_jpg, BinaryData::background_jpgSize);
-    barsLit    = ImageCache::getFromMemory (BinaryData::bars_lit_png,       BinaryData::bars_lit_pngSize);
-    barsLitAmber = ImageCache::getFromMemory (BinaryData::bars_lit_amber_png, BinaryData::bars_lit_amber_pngSize);
-    modeBlend  = proc.apvts.getRawParameterValue ("mode")->load() > 0.5f ? 1.0f : 0.0f;
-    lnf.strip  = ImageCache::getFromMemory (BinaryData::knob_strip_png, BinaryData::knob_strip_pngSize);
-    brandFace  = Typeface::createSystemTypefaceFor (BinaryData::MontserratBold_ttf, (size_t) BinaryData::MontserratBold_ttfSize);
+    background = png (BinaryData::background_png, BinaryData::background_pngSize);
+    ledImg[0]   = png (BinaryData::led_blue_png,   BinaryData::led_blue_pngSize);
+    ledImg[1]   = png (BinaryData::led_amber_png,  BinaryData::led_amber_pngSize);
+    barsImg[0]  = png (BinaryData::bars_blue_png,  BinaryData::bars_blue_pngSize);
+    barsImg[1]  = png (BinaryData::bars_amber_png, BinaryData::bars_amber_pngSize);
+    haloImg[0]  = png (BinaryData::halo_blue_png,  BinaryData::halo_blue_pngSize);
+    haloImg[1]  = png (BinaryData::halo_amber_png, BinaryData::halo_amber_pngSize);
+    slideImg[0] = png (BinaryData::slide_left_png,  BinaryData::slide_left_pngSize);
+    slideImg[1] = png (BinaryData::slide_right_png, BinaryData::slide_right_pngSize);
 
-    // valeurs de depart : la ligne d'etat ne s'affiche qu'apres un mouvement de potard
-    const char* ids[4] = { "speed", "depth", "delay", "regen" };
+    regularFace = Typeface::createSystemTypefaceFor (BinaryData::PoppinsRegular_ttf,  BinaryData::PoppinsRegular_ttfSize);
+    mediumFace  = Typeface::createSystemTypefaceFor (BinaryData::PoppinsMedium_ttf,   BinaryData::PoppinsMedium_ttfSize);
+    semiFace    = Typeface::createSystemTypefaceFor (BinaryData::PoppinsSemiBold_ttf, BinaryData::PoppinsSemiBold_ttfSize);
+    boldFace    = Typeface::createSystemTypefaceFor (BinaryData::PoppinsBold_ttf,     BinaryData::PoppinsBold_ttfSize);
+    menuLnf.f = { regularFace, mediumFace, boldFace };
+    if (auto xml = XmlDocument::parse (String::fromUTF8 (BinaryData::NineHandsLogoBlack_svg, BinaryData::NineHandsLogoBlack_svgSize)))
+        logo = Drawable::createFromSVG (*xml);
+    buildPrint();
+    glow = (float) NineHandsGlow::percent ("Wackd") / 100.0f;
+
+    // potards : calques nh::Knob (lumiere en haut a gauche a 45 deg, ombre a 45 deg vers le bas a droite)
+    nh::Knob::Layers L;
+    L.shadow    = png (BinaryData::knob_shadow_png,    BinaryData::knob_shadow_pngSize);
+    L.crown     = png (BinaryData::knob_crown_png,     BinaryData::knob_crown_pngSize);
+    L.marker    = png (BinaryData::knob_marker_png,    BinaryData::knob_marker_pngSize);
+    L.highlight = png (BinaryData::knob_highlight_png, BinaryData::knob_highlight_pngSize);
     for (int i = 0; i < 4; ++i)
-        lastKnobs[i] = proc.apvts.getRawParameterValue (ids[i])->load();
-    rightClickFwd.callback = [this] (Component* c)
     {
-        // index des commandes = learnDef du processeur (0-3 potards, 4 Mode, 5 Krazy, 6 footswitch)
-        const Component* ctls[7] = { &speed, &depth, &delay, &regen, &modeSwitch, &krazySwitch, &footswitch };
-        int idx = -1;
-        for (int i = 0; i < 7; ++i)
-            if (c == ctls[i]) idx = i;
-        showContextMenu (idx);
-    };
-
-    auto setupKnob = [this] (Slider& s, const char* id,
-                             std::unique_ptr<AudioProcessorValueTreeState::SliderAttachment>& att)
-    {
-        s.setSliderStyle (Slider::RotaryHorizontalVerticalDrag);
-        s.setTextBoxStyle (Slider::NoTextBox, false, 0, 0);
-        s.setRotaryParameters (MathConstants<float>::pi * 1.25f, MathConstants<float>::pi * 2.75f, true);
-        s.setMouseDragSensitivity (220);
-        s.setLookAndFeel (&lnf);
-        s.setMouseCursor (MouseCursor::PointingHandCursor);
-        s.addMouseListener (&rightClickFwd, false);
-        addAndMakeVisible (s);
-        att = std::make_unique<AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, id, s);
-    };
-
-    setupKnob (speed, "speed", aSpeed);
-    setupKnob (depth, "depth", aDepth);
-    setupKnob (delay, "delay", aDelay);
-    setupKnob (regen, "regen", aRegen);
-
-    for (auto* c : { (Component*) &modeSwitch, (Component*) &krazySwitch, (Component*) &footswitch })
-    {
-        c->addMouseListener (&rightClickFwd, false);
-        addAndMakeVisible (c);
+        knobs[i] = std::make_unique<nh::Knob> (*proc.apvts.getParameter (knobIds[i]), L);
+        knobs[i]->onRightClick = [this, i] (const MouseEvent&) { showContextMenu (i); };
+        knobs[i]->onUserChange = [this, i] { meterKnob = i; };
+        addAndMakeVisible (*knobs[i]);
     }
 
-    // Taille par defaut = taille minimale (impossible de reduire en dessous)
-    const int defaultW = roundToInt ((float) defaultH * (float) baseW / (float) baseH);
+    // taille : 493 px par defaut (« 60 % ») = taille minimale, proportions bloquees
+    const double aspect = (double) baseW / (double) baseH;
     setResizable (true, true);
-    setResizeLimits (defaultW, defaultH, baseW * 3 / 2, baseH * 3 / 2);
-    if (auto* cons = getConstrainer())
-        cons->setFixedAspectRatio ((double) baseW / (double) baseH);
-    setOpaque (true);                      // anti-gel : l'hote ne redessine jamais ce qui est derriere la fenetre
-    setSize (defaultW, defaultH);
-    // taille des nouvelles fenetres : celle choisie dans le menu « Default size (new windows) »
-    setScaledHeight (sizeHeight (WigaWindowSize::defaultIndex (JucePlugin_Name, numSizes)));
-    rebuildBrand();
+    setResizeLimits (roundToInt (heightDefault * aspect), heightDefault, roundToInt (heightMax * aspect), heightMax);
+    getConstrainer()->setFixedAspectRatio (aspect);
+    setOpaque (true);
+    const int h0 = sizeHeight (WigaWindowSize::defaultIndex ("Wackd", numSizes));
+    setSize (roundToInt (h0 * aspect), h0);
     rebuildCaches();
 
-    for (int i = 0; i < numBars; ++i)
-        drawnBarFill[i] = drawnBarSpark[i] = -1.0f;   // premier tic : tout est redessine
-
-    lastTime = Time::getMillisecondCounterHiRes();
+    for (int i = 0; i < 4; ++i) lastKnob[i] = value (knobIds[i]);
+    lastMode = flag ("mode"); lastKrazy = flag ("krazy"); lastOn = flag ("active"); lastStereo = flag ("stereo");
+    for (auto& b : dBars) b = -1.0f;
+    snapshotPreset();
+    lastPreset = proc.currentPreset.load();
+    settleForCapture();
     startTimerHz (30);
 }
 
 WackdAudioProcessorEditor::~WackdAudioProcessorEditor()
 {
+    PopupMenu::dismissAllActiveMenus();
     stopTimer();
-    for (auto* s : { &speed, &depth, &delay, &regen })
-    {
-        s->removeMouseListener (&rightClickFwd);
-        s->setLookAndFeel (nullptr);
-    }
-    for (auto* c : { (Component*) &modeSwitch, (Component*) &krazySwitch, (Component*) &footswitch })
-        c->removeMouseListener (&rightClickFwd);
 }
 
 //==============================================================================
-// Anti-gel de la fenetre (Windows) : JUCE 8 dessine par defaut avec Direct2D (carte graphique).
-// Avec certains pilotes (Intel notamment) la fenetre du plugin cesse de se rafraichir alors que
-// le DAW continue de tourner. Le moteur logiciel est stable partout et largement assez rapide ici.
-//
-// Anti-gel v2 (NINE HANDS | DSP) :
-//  1. moteur de rendu logiciel force sur Windows, applique a chaque nouvelle fenetre hote (peer)
-//     et reverifie toutes les secondes, jamais en boucle ;
-//  2. aucun calcul lourd dans paint() : le fond est mis a la taille d'affichage par le timer seulement,
-//     apres stabilisation de la taille ou quand l'echelle d'affichage change (au plus toutes les 250 ms) ;
-//  3. chien de garde : si un redessin demande n'est pas arrive au bout de 1,5 s alors que la fenetre est
-//     visible, le moteur de rendu est reapplique et toute la fenetre est redessinee ;
-//  4. cote audio : aucun appel a l'hote ni allocation depuis le thread audio (voir PluginProcessor).
+// Anti-gel v2 (NINE HANDS | DSP) : moteur logiciel sous Windows, caches refaits par le timer seulement,
+// chien de garde des redessins, aucun appel a l'hote depuis le thread audio (voir PluginProcessor).
 void WackdAudioProcessorEditor::useSoftwareRenderer()
 {
     auto* peer = getPeer();
@@ -256,488 +98,598 @@ void WackdAudioProcessorEditor::useSoftwareRenderer()
    #endif
 }
 
-void WackdAudioProcessorEditor::parentHierarchyChanged()
-{
-    useSoftwareRenderer();
-}
-
-void WackdAudioProcessorEditor::visibilityChanged()
-{
-    useSoftwareRenderer();
-    if (isShowing())
-        repaint();
-}
-
-void WackdAudioProcessorEditor::askRepaint (Rectangle<int> r)
-{
-    if (repaintAskedMs <= 0.0) repaintAskedMs = Time::getMillisecondCounterHiRes();
-    repaint (r);
-}
+void WackdAudioProcessorEditor::parentHierarchyChanged() { useSoftwareRenderer(); }
+void WackdAudioProcessorEditor::visibilityChanged()      { useSoftwareRenderer(); if (isShowing()) repaint(); }
 
 float WackdAudioProcessorEditor::physicalScale() const
 {
+    if (forcedScale > 0.0f) return forcedScale;
     return jlimit (1.0f, 4.0f, (float) Component::getApproximateScaleFactorForComponent (this));
 }
 
-// Cache d'affichage : fond deja a la taille de la fenetre (pixels physiques) -> plus de
-// re-echantillonnage de l'image d'origine a chaque rafraichissement.
-void WackdAudioProcessorEditor::rebuildCaches (float sc)
+void WackdAudioProcessorEditor::askRepaint (Rectangle<float> u)
 {
-    if (sc <= 0.0f)
-        sc = cacheScale > 0.0f ? cacheScale : physicalScale();
-    const int w = getWidth(), h = getHeight();
-    if (w <= 0 || h <= 0 || ! background.isValid())
-        return;
-    if (w == cacheW && h == cacheH && std::abs (sc - cacheScale) < 0.01f && bgScaled.isValid())
-        return;
-
-    cacheW = w; cacheH = h; cacheScale = sc;
-    const int pw = roundToInt ((float) w * sc), ph = roundToInt ((float) h * sc);
-    bgScaled = (pw >= background.getWidth()) ? background
-                                             : background.rescaled (pw, ph, Graphics::highResamplingQuality);
-    repaint();
-}
-
-int WackdAudioProcessorEditor::sizeHeight (int idx)
-{
-    const int h[numSizes] = { (int) defaultH, roundToInt (baseH * 0.75f), (int) baseH };
-    return h[jlimit (0, numSizes - 1, idx)];
-}
-
-void WackdAudioProcessorEditor::setScaledHeight (int h)
-{
-    h = jmax ((int) defaultH, h);
-    setSize (roundToInt ((float) h * (float) baseW / (float) baseH), h);
-}
-
-Rectangle<int> WackdAudioProcessorEditor::scaled (Rectangle<float> r) const
-{
-    const float s = (float) getHeight() / (float) baseH;
-    return r.transformedBy (AffineTransform::scale (s)).getSmallestIntegerContainer();
+    if (repaintAskedMs <= 0.0) repaintAskedMs = Time::getMillisecondCounterHiRes();
+    repaint (u.transformedBy (AffineTransform::scale (k())).getSmallestIntegerContainer().expanded (2));
 }
 
 void WackdAudioProcessorEditor::resized()
 {
-    Slider* knobs[4] = { &speed, &depth, &delay, &regen };
-    const float half = knobR * knobStripHalf;
+    // jamais de setSize ici ; les caches attendent que la taille se stabilise (timer)
+    const float kk = k();
     for (int i = 0; i < 4; ++i)
-        knobs[i]->setBounds (scaled ({ knobX[i] - half, knobY - half, half * 2.0f, half * 2.0f }));
-
-    modeSwitch.setBounds  (scaled (modeRect));
-    krazySwitch.setBounds (scaled (krazyRect));
-    footswitch.setBounds  (scaled ({ footPos.x - footR, footPos.y - footR, footR * 2.0f, footR * 2.0f }));
-
-    // anti-gel : jamais de setSize ici (les limites du constrainer suffisent) ;
-    // pendant un redimensionnement a la souris, on attend que la taille se stabilise
+        knobs[i]->setBounds (Rectangle<float> (layout::knobS, layout::knobS).withCentre (layout::knobPos[i])
+                                 .transformedBy (AffineTransform::scale (kk)).getSmallestIntegerContainer());
     resizeSettle = 4;
 }
 
-//==============================================================================
-// Ligne d'etat
-//==============================================================================
-String WackdAudioProcessorEditor::buildStatusLine() const
+int WackdAudioProcessorEditor::sizeHeight (int idx)
 {
-    auto v = [this] (const char* id) { return String (proc.apvts.getRawParameterValue (id)->load(), 1); };
-    return "SPEED " + v ("speed") + "  DEPTH " + v ("depth")
-         + "  DELAY " + v ("delay") + "  REGEN " + v ("regen");
+    const int h[numSizes] = { heightDefault, 719, 958 };
+    return h[jlimit (0, numSizes - 1, idx)];
 }
 
-String WackdAudioProcessorEditor::buildPresetLine() const
+void WackdAudioProcessorEditor::setWindowHeight (int h)
 {
-    const bool fl = proc.apvts.getRawParameterValue ("mode")->load()  > 0.5f;
-    const bool wk = proc.apvts.getRawParameterValue ("krazy")->load() > 0.5f;
-    const bool on = proc.apvts.getRawParameterValue ("active")->load() > 0.5f;
+    h = jlimit (heightDefault, heightMax, h);
+    setSize (roundToInt ((double) h * baseW / baseH), h);
+}
 
-    String s = String (fl ? "FLANGER" : "CHORUS") + " / " + (wk ? "WACK'D" : "NORMAL");
-    if (! on) s << " / BYPASS";
+void WackdAudioProcessorEditor::rebuildCaches (float sc)
+{
+    if (sc <= 0.0f) sc = physicalScale();
+    const int w = getWidth(), h = getHeight();
+    if (w <= 0 || h <= 0) return;
+    if (w == cacheW && h == cacheH && std::abs (sc - cacheScale) < 0.01f && bgScaled.isValid()) return;
+    cacheW = w; cacheH = h; cacheScale = sc;
+    const int pw = roundToInt ((float) w * sc), ph = roundToInt ((float) h * sc);
+    bgScaled = (pw >= background.getWidth()) ? background : background.rescaled (pw, ph, Graphics::highResamplingQuality);
+    repaint();
+}
 
-    const int cp = proc.currentPreset.load();
-    if (cp >= 0 && cp < WackdAudioProcessor::getNumFactoryPresets())
-        s << "  |  P" << (cp + 1) << " " << WackdAudioProcessor::getFactoryPreset (cp).name;
-    else if (cp > 100)
-        s << "  |  USER " << (cp - 100);
+void WackdAudioProcessorEditor::forceRenderScale (float sc)
+{
+    forcedScale = sc;
+    resized();
+    resizeSettle = 0;
+    cacheW = 0;
+    rebuildCaches (sc);
+    for (auto& kn : knobs) kn->forceRenderScale (sc);
+}
 
-    const int cc = proc.lastMidiCC.load();
-    if (cc >= 0)       s << "  |  CC" << cc << "=" << proc.lastMidiValue.load();
-    else if (cc == -2) s << "  |  PC " << proc.lastMidiProgram.load();
+void WackdAudioProcessorEditor::setGlowPercent (int pc)
+{
+    NineHandsGlow::setPercent ("Wackd", pc);
+    glow = (float) jlimit (25, 100, pc) / 100.0f;
+    repaint();
+}
 
+void WackdAudioProcessorEditor::settleForCapture()
+{
+    ledLevel = flag ("active") ? 1.0f : 0.0f;
+    amber = flag ("mode") ? 1.0f : 0.0f;
+    updateMeter();
+    meterLevel = jlimit (0.0f, 1.0f, meterLevel);
+    float level = 0.0f;
+    if (meterKnob >= 0) level = value (knobIds[meterKnob]) / 10.0f;
+    else for (auto* id : knobIds) level += value (id) / 40.0f;
+    meterLevel = ledLevel > 0.5f ? jlimit (0.0f, 1.0f, level) : 0.0f;
+    for (int i = 0; i < numBars; ++i) barFill[i] = jlimit (0.0f, 1.0f, meterLevel * (float) numBars - (float) i);
+    presetText = presetLine();
+    statusAlpha = Time::getMillisecondCounterHiRes() < statusUntil ? 1.0f : 0.0f;
+    repaint();
+}
+
+//==============================================================================
+// Serigraphie vectorielle (Layout.h) : construite une fois en chemins (unites du plugin)
+//==============================================================================
+void WackdAudioProcessorEditor::buildPrint()
+{
+    printPath.clear();
+    auto faceOf = [this] (int f) { return f == 2 ? boldFace : (f == 1 ? semiFace : mediumFace); };
+    int lab = 0;
+    for (const auto& t : layout::texts)
+    {
+        const Font font (FontOptions (faceOf (t.font)).withPointHeight (t.em));
+        const String s (t.s);
+        const float w = GlyphArrangement::getStringWidth (font, s);
+        const float base = (font.getAscent() - font.getDescent()) * 0.5f;
+        GlyphArrangement ga;
+        ga.addLineOfText (font, s, t.align == 0 ? -w * 0.5f : (t.align == 2 ? -w : 0.0f), base);
+        Path p; ga.createPath (p);
+        p.applyTransform (AffineTransform::translation (t.x, t.y));
+        printPath.addPath (p);
+        if (s == "CHORUS" || s == "FLANGER" || s == "NORMAL" || s == "WACK'D")
+            if (lab < 4) labelHit[lab++] = p.getBounds().expanded (6.0f, 6.0f);
+    }
+    for (const auto& tk : layout::ticks)
+    {
+        Path seg; seg.startNewSubPath (tk.x0, tk.y0); seg.lineTo (tk.x1, tk.y1);
+        Path stroked;
+        PathStrokeType (tk.w, PathStrokeType::curved, PathStrokeType::butt).createStrokedPath (stroked, seg);
+        printPath.addPath (stroked);
+    }
+    for (const auto& tr : layout::tris)
+    {
+        Path p; p.addTriangle (tr.x0, tr.y0, tr.x1, tr.y1, tr.x2, tr.y2);
+        printPath.addPath (p);
+    }
+}
+
+//==============================================================================
+String WackdAudioProcessorEditor::knobText (int i) const
+{
+    const float v = value (knobIds[i]);
+    String s = String (knobNames[i]).toUpperCase() + "  " + String (roundToInt (v * 10.0f)) + " %";
+    if (i == 0)
+    {
+        // meme loi que le moteur (triangle, plage 1:100 en Normal)
+        const bool fl = flag ("mode"), wk = flag ("krazy");
+        const double sp = v / 10.0;
+        const double hz = ! wk ? (fl ? 0.05 : 0.10) * std::pow (100.0, sp) : (fl ? 0.30 : 0.60) * std::pow (66.7, sp);
+        s << String (CharPointer_UTF8 ("  \xc2\xb7  ")) << String (hz, hz < 1.0 ? 2 : 1) << " Hz";
+    }
     return s;
 }
 
-//==============================================================================
-// Jauge sous la LED : progression horizontale de gauche (0 %) a droite (100 %)
-// = valeur du dernier potard tourne (au demarrage : moyenne des 4 potards).
-// Les barres allumees scintillent legerement (plus fort avec REGEN).
-//==============================================================================
-void WackdAudioProcessorEditor::updateBars (double)
+void WackdAudioProcessorEditor::snapshotPreset()
 {
-    const char* ids[4] = { "speed", "depth", "delay", "regen" };
-    const bool on = proc.apvts.getRawParameterValue ("active")->load() > 0.5f;
-    const float rg = proc.apvts.getRawParameterValue ("regen")->load() / 10.0f;
+    const char* ids[6] = { "speed", "depth", "delay", "regen", "mode", "krazy" };
+    for (int i = 0; i < 6; ++i) presetSnap[i] = value (ids[i]);
+}
 
+bool WackdAudioProcessorEditor::editedSincePreset() const
+{
+    const char* ids[6] = { "speed", "depth", "delay", "regen", "mode", "krazy" };
+    const int cp = proc.currentPreset.load();
+    if (cp >= 0 && cp < WackdAudioProcessor::getNumFactoryPresets())
+    {
+        // preset d'usine : compare aux valeurs du preset (quelle que soit la facon dont il a ete charge)
+        const auto& fp = WackdAudioProcessor::getFactoryPreset (cp);
+        const float ref[6] = { fp.speed, fp.depth, fp.delay, fp.regen, (float) fp.mode, (float) fp.krazy };
+        for (int i = 0; i < 6; ++i)
+            if (std::abs (value (ids[i]) - ref[i]) > 0.006f) return true;
+        return false;
+    }
+    for (int i = 0; i < 6; ++i)
+        if (std::abs (value (ids[i]) - presetSnap[i]) > 0.006f) return true;
+    return false;
+}
+
+String WackdAudioProcessorEditor::presetLine() const
+{
+    const int cp = proc.currentPreset.load();
+    if (cp < 0 || editedSincePreset()) return "Edited";
+    if (cp < WackdAudioProcessor::getNumFactoryPresets())
+        return String (cp + 1) + "  " + WackdAudioProcessor::getFactoryPreset (cp).name;
+    if (cp > 100) return "User " + String (cp - 100);
+    return "Edited";
+}
+
+void WackdAudioProcessorEditor::flash (const String& t, double seconds)
+{
+    statusText = t;
+    statusUntil = Time::getMillisecondCounterHiRes() + seconds * 1000.0;
+}
+
+void WackdAudioProcessorEditor::setParam (const String& id, float plain)
+{
+    if (auto* p = proc.apvts.getParameter (id))
+    {
+        p->beginChangeGesture();
+        p->setValueNotifyingHost (p->convertTo0to1 (plain));
+        p->endChangeGesture();
+    }
+}
+
+void WackdAudioProcessorEditor::loadFactory (int i)
+{
+    proc.applyFactoryPreset (i);
+    proc.updateHostDisplay (AudioProcessor::ChangeDetails().withProgramChanged (true));
+    snapshotPreset();
+    lastPreset = proc.currentPreset.load();
+    for (int j = 0; j < 4; ++j) lastKnob[j] = value (knobIds[j]);
+    lastMode = flag ("mode"); lastKrazy = flag ("krazy");
+}
+
+void WackdAudioProcessorEditor::loadUser (int slot)
+{
+    if (proc.loadUserPreset (slot))
+    {
+        snapshotPreset();
+        lastPreset = proc.currentPreset.load();
+        for (int j = 0; j < 4; ++j) lastKnob[j] = value (knobIds[j]);
+        lastMode = flag ("mode"); lastKrazy = flag ("krazy");
+    }
+}
+
+void WackdAudioProcessorEditor::stepPreset (int delta)
+{
+    const int n = WackdAudioProcessor::getNumFactoryPresets();
+    int cp = proc.currentPreset.load();
+    if (cp < 0 || cp >= n) cp = delta > 0 ? -1 : 0;
+    loadFactory ((cp + delta + n) % n);
+}
+
+//==============================================================================
+// Jauge sous la LED : de gauche (0 %) a droite (100 %) = valeur du dernier potard tourne
+// (au demarrage : moyenne des 4 potards) ; eteinte en bypass.
+void WackdAudioProcessorEditor::updateMeter()
+{
     float level = 0.0f;
-    if (meterKnob >= 0)
-        level = proc.apvts.getRawParameterValue (ids[meterKnob])->load() / 10.0f;
-    else
-    {
-        for (auto* id : ids)
-            level += proc.apvts.getRawParameterValue (id)->load() / 40.0f;
-    }
-
-    const float target = on ? jlimit (0.0f, 1.0f, level) : 0.0f;
+    if (meterKnob >= 0) level = value (knobIds[meterKnob]) / 10.0f;
+    else for (auto* id : knobIds) level += value (id) / 40.0f;
+    const float target = flag ("active") ? jlimit (0.0f, 1.0f, level) : 0.0f;
     meterLevel += (target - meterLevel) * 0.35f;
-
-    const float shimmer = 0.05f + 0.20f * rg;
-    const float lit = meterLevel * (float) numBars;          // nombre de barres allumees (fractionnaire)
-
+    if (std::abs (target - meterLevel) < 0.002f) meterLevel = target;
     for (int i = 0; i < numBars; ++i)
-    {
-        barFill[i]  = jlimit (0.0f, 1.0f, lit - (float) i);  // 1 = pleine, 0..1 = barre en cours
-        barSpark[i] = on ? 1.0f - shimmer * rng.nextFloat() : 1.0f;
-    }
-
-    ledFlicker = on ? 0.95f + 0.05f * rng.nextFloat() : 1.0f;
+        barFill[i] = jlimit (0.0f, 1.0f, meterLevel * (float) numBars - (float) i);
 }
 
 void WackdAudioProcessorEditor::timerCallback()
 {
     const double now = Time::getMillisecondCounterHiRes();
-    const double dt = jlimit (0.0, 0.1, (now - lastTime) * 0.001);
-    lastTime = now;
-
-    const int mc = proc.midiCounter.load();
-    if (mc != lastMidiCount) { lastMidiCount = mc; midiFlash = 8; }
-    if (midiFlash > 0) --midiFlash;
-
-    lastStatus = buildStatusLine();
-    lastPreset = buildPresetLine();
-
-    // La ligne d'etat n'apparait que lorsqu'un potard bouge (souris, automation ou MIDI),
-    // reste 2,5 s puis s'efface en douceur.
-    {
-        const char* ids[4] = { "speed", "depth", "delay", "regen" };
-        for (int i = 0; i < 4; ++i)
-        {
-            const float v = proc.apvts.getRawParameterValue (ids[i])->load();
-            if (std::abs (v - lastKnobs[i]) > 1.0e-4f)
-            {
-                lastKnobs[i] = v;
-                statusUntil = now + 2500.0;
-                meterKnob = i;
-            }
-        }
-        Slider* sl[4] = { &speed, &depth, &delay, &regen };
-        for (int i = 0; i < 4; ++i)
-            if (sl[i]->isMouseButtonDown())
-            {
-                statusUntil = now + 2500.0;
-                meterKnob = i;
-                learnLineUntil = 0.0;
-            }
-
-        // MIDI Learn : attente puis confirmation 2 s dans la ligne d'etat
-        const int lt = proc.learnTarget.load();
-        const int learned = proc.lastLearned.exchange (-1);
-        if (learned >= 0)
-        {
-            learnLine = String (WackdAudioProcessor::learnDef (learned).name) + " = CC " + String (proc.ccMap[learned].load());
-            learnLineUntil = now + 2000.0;
-            statusUntil = jmax (statusUntil, learnLineUntil);
-        }
-        else if (lt >= 0)
-        {
-            learnLine = "MIDI LEARN: move a control for " + String (WackdAudioProcessor::learnDef (lt).name);
-            learnLineUntil = now + 200.0;
-            statusUntil = jmax (statusUntil, now + 200.0);
-        }
-        // (le message de learn reste pendant le fondu de sortie)
-        if (learnLineUntil > 0.0 && now < learnLineUntil + 800.0)
-            lastStatus = learnLine;
-
-        const float target = now < statusUntil ? 1.0f : 0.0f;
-        statusAlpha += (target - statusAlpha) * (target > statusAlpha ? 0.45f : 0.12f);
-        if (statusAlpha < 0.005f) statusAlpha = 0.0f;
-    }
-
-    updateBars (dt);
-
-    {
-        const float target = proc.apvts.getRawParameterValue ("mode")->load() > 0.5f ? 1.0f : 0.0f;
-        modeBlend += (target - modeBlend) * 0.25f;
-        if (std::abs (target - modeBlend) < 0.002f) modeBlend = target;
-    }
-
-    // au cas ou la fenetre a ete recreee par l'hote (changement d'ecran, d'echelle...) : au plus 1 fois par seconde
     if (getPeer() != lastPeer || now - lastRendererCheckMs > 1000.0) { lastRendererCheckMs = now; useSoftwareRenderer(); }
-
-    // cache du fond : reconstruit ici seulement (jamais dans paint)
-    if (resizeSettle > 0 && --resizeSettle == 0)
-        rebuildCaches();
+    if (resizeSettle > 0 && --resizeSettle == 0) rebuildCaches();
     else if (resizeSettle == 0 && now - lastScaleCheckMs > 250.0)
     {
         lastScaleCheckMs = now;
         const float sc = physicalScale();
-        if (std::abs (sc - cacheScale) > 0.01f)
-            rebuildCaches (sc);
+        if (std::abs (sc - cacheScale) > 0.01f) rebuildCaches (sc);
     }
-
-    // chien de garde : un redessin demande n'arrive pas -> on relance le moteur de rendu et on redessine tout
     if (repaintAskedMs > 0.0 && isShowing() && now - repaintAskedMs > 1500.0 && lastPaintMs < repaintAskedMs)
     {
-        repaintAskedMs = 0.0;
-        lastPeer = nullptr;
-        useSoftwareRenderer();
-        repaint();
+        repaintAskedMs = 0.0; lastPeer = nullptr;
+        useSoftwareRenderer(); repaint();
+    }
+    if (now - lastGlowCheckMs > 3000.0)
+    {
+        lastGlowCheckMs = now;
+        glow = (float) NineHandsGlow::percent ("Wackd") / 100.0f;          // reglage commun a toutes les fenetres
     }
 
-    // On ne redessine la LED, les barres et la ligne d'etat que si ce qu'elles affichent a change
-    // (zero travail au repos ; quand l'effet est actif, le scintillement continue normalement)
-    auto changed = [] (float& drawn, float now) { if (std::abs (drawn - now) < 0.002f) return false; drawn = now; return true; };
-
-    bool ledDirty = false;
+    // ---- reglages qui changent (souris, automation, MIDI) -> ligne d'etat ; chargement de preset -> barre seulement
+    const int cp = proc.currentPreset.load();
+    const bool presetLoaded = cp != lastPreset;
+    if (presetLoaded) { lastPreset = cp; snapshotPreset(); }
+    const bool mode = flag ("mode"), krazy = flag ("krazy"), on = flag ("active"), stereo = flag ("stereo");
+    for (int i = 0; i < 4; ++i)
     {
-        const int on = footswitch.isOn() ? 1 : 0;
-        if (on != drawnLedOn) { drawnLedOn = on; ledDirty = true; }
-        ledDirty |= changed (drawnFlicker, ledFlicker);
-        ledDirty |= changed (drawnLedBlend, modeBlend);
-        for (int i = 0; i < numBars; ++i)
+        const float v = value (knobIds[i]);
+        if (std::abs (v - lastKnob[i]) > 1.0e-4f)
         {
-            ledDirty |= changed (drawnBarFill[i], barFill[i]);
-            ledDirty |= changed (drawnBarSpark[i], barSpark[i]);
+            lastKnob[i] = v;
+            if (! presetLoaded) { meterKnob = i; flash (knobText (i)); }
         }
     }
-
-    bool statusDirty = changed (drawnStatusAlpha, statusAlpha);
-    if (statusAlpha > 0.0f)
+    if (! presetLoaded)
     {
-        const int mf = midiFlash > 0 ? 1 : 0;
-        if (mf != drawnMidiFlash)            { drawnMidiFlash = mf; statusDirty = true; }
-        if (lastStatus != drawnStatusText)   { drawnStatusText = lastStatus; statusDirty = true; }
-        if (lastPreset != drawnPresetText)   { drawnPresetText = lastPreset; statusDirty = true; }
-        statusDirty |= changed (drawnStatusBlend, modeBlend);
+        if (mode != lastMode)   flash (String ("MODE  ") + (mode ? "Flanger" : "Chorus"));
+        if (krazy != lastKrazy) flash (String ("KRAZY  ") + (krazy ? "Wack'd" : "Normal"));
     }
-    else if (drawnStatusAlpha == 0.0f)
-    {
-        // ligne masquee : on oublie le dernier texte pour la redessiner a sa reapparition
-        drawnMidiFlash = -1; drawnStatusText.clear(); drawnPresetText.clear(); drawnStatusBlend = -1.0f;
-    }
+    if (on != lastOn)         flash (on ? "Effect on" : "Bypass", 1.6);
+    if (stereo != lastStereo) flash (stereo ? "Output  CF7 stereo (INV)" : "Output  Mono compatible");
+    lastMode = mode; lastKrazy = krazy; lastOn = on; lastStereo = stereo;
 
-    if (ledDirty)
-        askRepaint (scaled ({ ledPos.x - 60.0f, ledPos.y - 60.0f, 120.0f, 100.0f }).getUnion (scaled (barsArea.expanded (8.0f))));
-    if (statusDirty)
-        askRepaint (scaled (statusRect.expanded (4.0f)));
+    if (const int lt = proc.learnTarget.load(); lt >= 0)
+        flash ("MIDI LEARN  " + String (WackdAudioProcessor::learnDef (lt).name), 0.25);
+    if (const int learned = proc.lastLearned.exchange (-1); learned >= 0)
+        flash (String (WackdAudioProcessor::learnDef (learned).name) + " = CC " + String (proc.ccMap[learned].load()));
+
+    const float st = now < statusUntil ? 1.0f : 0.0f;
+    statusAlpha += (st - statusAlpha) * (st > statusAlpha ? 0.45f : 0.30f);      // ~120 ms a l'apparition, ~300 ms au retour
+    if (statusAlpha < 0.005f) statusAlpha = 0.0f;
+    if (statusAlpha > 0.995f) statusAlpha = 1.0f;
+    presetText = presetLine();
+
+    // ---- lumieres
+    ledLevel += ((on ? 1.0f : 0.0f) - ledLevel) * (on ? 0.45f : 0.28f);
+    amber += ((mode ? 1.0f : 0.0f) - amber) * 0.30f;
+    for (auto* v : { &ledLevel, &amber })
+    {
+        if (*v < 0.003f) *v = 0.0f;
+        if (*v > 0.997f) *v = 1.0f;
+    }
+    updateMeter();
+
+    // ---- redessins limites a ce qui change
+    auto changed = [] (float& drawn, float v) { if (std::abs (drawn - v) < 0.003f) return false; drawn = v; return true; };
+    bool lights = dFirst;
+    lights |= changed (dLed, ledLevel);
+    lights |= changed (dAmber, amber);
+    lights |= changed (dGlow, glow);
+    for (int i = 0; i < numBars; ++i) lights |= changed (dBars[i], barFill[i]);
+    if (lights) askRepaint (layout::haloRect);
+    if (mode != dMode || dFirst)   { dMode = mode;   askRepaint (Rectangle<float> (layout::slotW, layout::slotH).withCentre (layout::modePos).expanded (3.0f)); }
+    if (krazy != dKrazy || dFirst) { dKrazy = krazy; askRepaint (Rectangle<float> (layout::slotW, layout::slotH).withCentre (layout::krazyPos).expanded (3.0f)); }
+    if (footDown != dFootDown)     { dFootDown = footDown; askRepaint (Rectangle<float> (layout::footR * 2.4f, layout::footR * 2.4f).withCentre (layout::fsPos)); }
+    if (changed (dStatus, statusAlpha) || statusText != dStatusText || presetText != dPresetText || hover != dHover)
+    {
+        dStatusText = statusText; dPresetText = presetText; dHover = hover;
+        askRepaint (layout::presetRect.expanded (3.0f));
+    }
+    dFirst = false;
 }
 
 //==============================================================================
-void WackdAudioProcessorEditor::drawLedAndBars (Graphics& g)
-{
-    const bool on = footswitch.isOn();
-    const float mb = modeBlend;
-    const Colour core = iceCore.interpolatedWith (ambCore, mb);
-    const Colour mid  = iceMid .interpolatedWith (ambMid,  mb);
-    const Colour deep = iceDeep.interpolatedWith (ambDeep, mb);
-
-    // --- jauge : barres allumees de gauche a droite, bleu (chorus) / jaune-orange (flanger)
-    for (int i = 0; i < numBars; ++i)
-    {
-        const float f = barFill[i];
-        if (f <= 0.01f)
-            continue;
-
-        const auto* s = slots[i];
-        Graphics::ScopedSaveState state (g);
-        g.reduceClipRegion (Rectangle<float> (s[0] - 4.0f, s[1] - 4.0f, (s[2] - s[0]) + 8.0f, (s[3] - s[1]) + 8.0f)
-                                .getSmallestIntegerContainer());
-        const float op = jlimit (0.0f, 1.0f, f * barSpark[i]);
-        if (mb < 0.999f && barsLit.isValid())
-        {
-            g.setOpacity (op * (1.0f - mb));
-            g.drawImage (barsLit, barsArea, RectanglePlacement::stretchToFit);
-        }
-        if (mb > 0.001f && barsLitAmber.isValid())
-        {
-            g.setOpacity (op * mb);
-            g.drawImage (barsLitAmber, barsArea, RectanglePlacement::stretchToFit);
-        }
-    }
-
-    // --- LED (lentille redessinee dans la bague du visuel) ------------------------
-    const auto c = ledPos;
-    const float rLens = 26.5f;   // lentille dans la bague du visuel (taille v1.4)
-
-    if (on)
-    {
-        ColourGradient bloom (mid.withAlpha (0.42f * ledFlicker), c.x, c.y,
-                              mid.withAlpha (0.0f), c.x + 62.0f, c.y, true);
-        g.setGradientFill (bloom);
-        g.fillEllipse (c.x - 62.0f, c.y - 62.0f, 124.0f, 124.0f);
-
-        ColourGradient lens (core, c.x - 3.0f, c.y - 4.0f,
-                             deep.withMultipliedBrightness (ledFlicker), c.x + rLens, c.y + rLens * 0.3f, true);
-        lens.addColour (0.42, mid.withMultipliedBrightness (ledFlicker));
-        g.setGradientFill (lens);
-    }
-    else
-    {
-        ColourGradient lens (Colour (0xff3a4a54), c.x - 6.0f, c.y - 8.0f,
-                             Colour (0xff0c141a), c.x + rLens, c.y + rLens, true);
-        g.setGradientFill (lens);
-    }
-    g.fillEllipse (c.x - rLens, c.y - rLens, rLens * 2.0f, rLens * 2.0f);
-
-    g.setColour (Colours::black.withAlpha (0.45f));
-    g.drawEllipse (c.x - rLens, c.y - rLens, rLens * 2.0f, rLens * 2.0f, 1.2f);
-
-    // reflet de verre fixe (cote lumiere)
-    ColourGradient gl (Colours::white.withAlpha (on ? 0.55f : 0.35f), c.x - rLens * 0.3f, c.y - rLens * 0.6f,
-                       Colours::white.withAlpha (0.0f), c.x - rLens * 0.3f, c.y + rLens * 0.1f, false);
-    g.setGradientFill (gl);
-    g.fillEllipse (c.x - rLens * 0.7f, c.y - rLens * 0.82f, rLens * 1.1f, rLens * 0.6f);
-}
-
-void WackdAudioProcessorEditor::drawStatus (Graphics& g)
-{
-    const float a = statusAlpha;
-    if (a <= 0.0f)
-        return;
-
-    const Colour accent = iceMid.interpolatedWith (ambMid, modeBlend);
-
-    g.setColour (Colours::black.withAlpha (0.72f * a));
-    g.fillRoundedRectangle (statusRect, 9.0f);
-    g.setColour (accent.withAlpha (0.45f * a));
-    g.drawRoundedRectangle (statusRect.reduced (0.75f), 9.0f, 1.5f);
-
-    g.setColour (Colours::white.withAlpha (a));
-    g.setFont (font (20.0f, true));
-    // (messages MIDI Learn plus longs : meme police, reduite au besoin pour tenir sur la ligne)
-    g.drawFittedText (lastStatus.isEmpty() ? buildStatusLine() : lastStatus,
-                      statusRect.withHeight (31.0f).translated (0.0f, 3.0f).reduced (6.0f, 0.0f).toNearestInt(),
-                      Justification::centred, 1, 0.7f);
-
-    g.setColour ((midiFlash > 0 ? Colours::white : accent).withMultipliedAlpha (a));
-    g.setFont (font (15.5f, true));
-    g.drawText (lastPreset.isEmpty() ? buildPresetLine() : lastPreset,
-                statusRect.withTrimmedTop (31.0f).withTrimmedBottom (5.0f), Justification::centred);
-}
-
 void WackdAudioProcessorEditor::paint (Graphics& g)
 {
     lastPaintMs = Time::getMillisecondCounterHiRes();
     repaintAskedMs = 0.0;
-    g.fillAll (Colours::black);
-    // anti-gel : aucun rescale ici, on dessine le cache existant (ou l'original en attendant le timer)
+    g.fillAll (Colour (0xff111112));          // derriere les jacks : le fond de l'image est transparent
     const Image& bg = bgScaled.isValid() ? bgScaled : background;
-    g.setImageResamplingQuality (bg.getWidth() == background.getWidth() ? Graphics::highResamplingQuality
-                                                                         : Graphics::lowResamplingQuality);
-    if (bg.isValid())
-        g.drawImage (bg, getLocalBounds().toFloat());
+    g.setImageResamplingQuality (&bg == &background ? Graphics::highResamplingQuality : Graphics::lowResamplingQuality);
+    if (bg.isValid()) g.drawImage (bg, getLocalBounds().toFloat());
 
-    const float s = (float) getHeight() / (float) baseH;
-    g.addTransform (AffineTransform::scale (s));
-
-    // Les prises jack (identiques a Textural) font partie de l'image de fond.
-    drawLedAndBars (g);
-    drawStatus (g);
-    drawBrand (g);
+    g.addTransform (AffineTransform::scale (k()));
+    g.setImageResamplingQuality (Graphics::mediumResamplingQuality);
+    drawLights (g);
+    drawSwitches (g);
+    drawPrint (g);
+    drawFoot (g);
+    drawBar (g);
 }
 
-//==============================================================================
-// « NINE HANDS | DSP » : police du logo NINE HANDS | DSP (Montserrat Bold), imprime
-// dans la meme encre que « Wack'd » et « flangerus »
-//==============================================================================
-void WackdAudioProcessorEditor::rebuildBrand()
+void WackdAudioProcessorEditor::drawLights (Graphics& g)
 {
-    brandPath.clear();
-    if (brandFace != nullptr)
+    const float wColour[2] = { 1.0f - amber, amber };
+    // 1. halos sur la facade (calques alpha precalcules), doses par le reglage Glow (25 a 100 %)
+    const auto hr = layout::haloRect;
+    for (int c = 0; c < 2; ++c)
     {
-        GlyphArrangement ga;
-        ga.addLineOfText (Font (FontOptions (brandFace).withHeight (29.0f)).withExtraKerningFactor (0.02f),
-                          "NINE HANDS | DSP", 0.0f, 0.0f);
-        ga.createPath (brandPath);
+        const auto& im = haloImg[c];
+        if (wColour[c] <= 0.003f || ! im.isValid()) continue;
+        const int lw = im.getWidth(), lh = im.getHeight() / 10;
+        for (int j = 0; j < 10; ++j)
+        {
+            const float lvl = (j == 0 ? ledLevel : barFill[j - 1]) * glow * wColour[c];
+            if (lvl <= 0.003f) continue;
+            g.setOpacity (jmin (1.0f, lvl));
+            g.drawImage (im, roundToInt (hr.getX()), roundToInt (hr.getY()), roundToInt (hr.getWidth()), roundToInt (hr.getHeight()),
+                         0, j * lh, lw, lh);
+        }
     }
-    if (brandPath.isEmpty())
-        return;
-
-    const auto b = brandPath.getBounds();
-    brandPath.applyTransform (AffineTransform::translation (brandRect.getCentreX() - b.getCentreX(),
-                                                            brandRect.getCentreY() - b.getCentreY()));
+    // 2. barres allumees (sources, jamais dosees par Glow)
+    const auto br = layout::barsRect;
+    for (int c = 0; c < 2; ++c)
+    {
+        if (wColour[c] <= 0.003f || ! barsImg[c].isValid()) continue;
+        for (int i = 0; i < numBars; ++i)
+        {
+            const float lvl = barFill[i] * wColour[c];
+            if (lvl <= 0.003f) continue;
+            const float x = layout::barX0 + (float) i * layout::barStep - (layout::barStep - layout::barW) * 0.5f;
+            Graphics::ScopedSaveState ss (g);
+            g.reduceClipRegion (Rectangle<float> (x, br.getY(), layout::barStep, br.getHeight()).getSmallestIntegerContainer());
+            g.setOpacity (jmin (1.0f, lvl));
+            g.drawImage (barsImg[c], br);
+        }
+    }
+    // 3. LED allumee
+    const auto lr = Rectangle<float> (layout::ledW, layout::ledH).withCentre (layout::ledPos);
+    for (int c = 0; c < 2; ++c)
+    {
+        const float lvl = ledLevel * wColour[c];
+        if (lvl <= 0.003f || ! ledImg[c].isValid()) continue;
+        g.setOpacity (jmin (1.0f, lvl));
+        g.drawImage (ledImg[c], lr);
+    }
+    g.setOpacity (1.0f);
 }
 
-void WackdAudioProcessorEditor::drawBrand (Graphics& g)
+void WackdAudioProcessorEditor::drawSwitches (Graphics& g)
 {
-    if (brandPath.isEmpty())
-        return;                            // anti-gel : chemin prepare dans le constructeur, jamais ici
-
-    // voile creme (couleur du fond de la pedale) sous les lettres, comme sous le titre :
-    // garde la lecture nette au-dessus des traits bleu-vert du dessin
-    const Colour paper (0xffeae2cc);
-    const float widths[] = { 13.0f, 9.0f, 5.5f };
-    const float alphas[] = { 0.10f, 0.18f, 0.35f };
-    for (int i = 0; i < 3; ++i)
+    g.setImageResamplingQuality (Graphics::highResamplingQuality);
+    for (int s = 0; s < 2; ++s)
     {
-        g.setColour (paper.withAlpha (alphas[i]));
-        g.strokePath (brandPath, PathStrokeType (widths[i], PathStrokeType::curved, PathStrokeType::rounded));
+        const bool right = flag (s == 0 ? "mode" : "krazy");
+        const auto r = Rectangle<float> (layout::slotW, layout::slotH).withCentre (s == 0 ? layout::modePos : layout::krazyPos);
+        if (slideImg[right ? 1 : 0].isValid()) g.drawImage (slideImg[right ? 1 : 0], r);
     }
-    g.setColour (paper.withAlpha (0.4f));
-    g.fillPath (brandPath);
+    g.setImageResamplingQuality (Graphics::mediumResamplingQuality);
+}
 
-    // encre du titre « Wack'd / flangerus »
-    g.setColour (Colour (0xff1b1a16));
-    g.fillPath (brandPath);
+void WackdAudioProcessorEditor::drawPrint (Graphics& g)
+{
+    g.setColour (ink);
+    g.fillPath (printPath);
+    if (logo != nullptr)
+    {
+        const auto vb = logo->getDrawableBounds();
+        const float w = layout::logoW, h = w * vb.getHeight() / jmax (1.0f, vb.getWidth());
+        logo->drawWithin (g, { layout::logoPos.x - w * 0.5f, layout::logoPos.y - h * 0.5f, w, h }, RectanglePlacement::centred, 1.0f);
+    }
+}
+
+void WackdAudioProcessorEditor::drawFoot (Graphics& g)
+{
+    if (! footDown) return;      // bouton enfonce (fonctionnement d'Echoflex)
+    const auto c = layout::fsPos;
+    const float r = layout::footR * 0.62f;
+    g.setColour (Colours::black.withAlpha (0.25f));
+    g.fillEllipse (c.x - r, c.y - r, r * 2.0f, r * 2.0f);
+}
+
+void WackdAudioProcessorEditor::drawBar (Graphics& g)
+{
+    // pastille unique (400 x 38) : barre de presets au repos, ligne d'etat pendant les reglages
+    const auto r = layout::presetRect;
+    const bool barHot = hover == Hit::presetPrev || hover == Hit::presetName || hover == Hit::presetNext;
+    const float rad = r.getHeight() * 0.5f;
+    g.setColour (pillOut);  g.fillRoundedRectangle (r.expanded (1.5f), rad + 1.5f);
+    g.setColour (pillRim.brighter (barHot && statusAlpha <= 0.0f ? 0.5f : 0.0f));
+    g.fillRoundedRectangle (r.expanded (0.5f), rad + 0.5f);
+    g.setColour (pillFace); g.fillRoundedRectangle (r, rad);
+
+    g.setFont (Font (FontOptions (mediumFace).withPointHeight (layout::presetFont)));
+    if (statusAlpha > 0.0f)
+    {
+        g.setColour (pillInk.withAlpha (statusAlpha));
+        g.drawFittedText (statusText, r.reduced (rad, 0.0f).translated (0.0f, 1.0f).toNearestInt(), Justification::centred, 1, 0.6f);
+    }
+    const float a = 1.0f - statusAlpha;
+    if (a <= 0.0f) return;
+    auto arrow = [&] (Rectangle<float> ar, bool left, bool hot)
+    {
+        Path p; const auto c = ar.getCentre(); const float sz = 5.5f;
+        if (left) p.addTriangle (c.x - sz * 0.8f, c.y, c.x + sz * 0.6f, c.y - sz, c.x + sz * 0.6f, c.y + sz);
+        else      p.addTriangle (c.x + sz * 0.8f, c.y, c.x - sz * 0.6f, c.y - sz, c.x - sz * 0.6f, c.y + sz);
+        g.setColour ((hot ? Colours::white : pillArrow).withAlpha (a));
+        g.fillPath (p);
+    };
+    arrow (r.withWidth (arrowW), true, hover == Hit::presetPrev);
+    arrow (r.withTrimmedLeft (r.getWidth() - arrowW), false, hover == Hit::presetNext);
+    g.setColour (pillInk.withAlpha ((hover == Hit::presetName ? 1.0f : 0.94f) * a));
+    g.drawFittedText (presetText, r.reduced (arrowW, 0.0f).translated (0.0f, 1.0f).toNearestInt(), Justification::centred, 1, 0.7f);
 }
 
 //==============================================================================
+// Souris
+//==============================================================================
+WackdAudioProcessorEditor::Hit WackdAudioProcessorEditor::hitAt (Point<float> u) const
+{
+    const auto slot = [] (Point<float> c) { return Rectangle<float> (layout::slotW, layout::slotH).withCentre (c).expanded (4.0f); };
+    if (slot (layout::modePos).contains (u))  return Hit::mode;
+    if (slot (layout::krazyPos).contains (u)) return Hit::krazy;
+    if (labelHit[0].contains (u)) return Hit::modeL;
+    if (labelHit[1].contains (u)) return Hit::modeR;
+    if (labelHit[2].contains (u)) return Hit::krazyL;
+    if (labelHit[3].contains (u)) return Hit::krazyR;
+    if (u.getDistanceFrom (layout::fsPos) <= layout::footR) return Hit::foot;
+    const auto r = layout::presetRect;
+    if (r.contains (u))
+        return u.x < r.getX() + arrowW ? Hit::presetPrev : (u.x > r.getRight() - arrowW ? Hit::presetNext : Hit::presetName);
+    return Hit::none;
+}
+
+void WackdAudioProcessorEditor::mouseMove (const MouseEvent& e)
+{
+    hover = hitAt (toUnits (e.position));
+    setMouseCursor (hover == Hit::none ? MouseCursor::NormalCursor : MouseCursor::PointingHandCursor);
+}
+
+void WackdAudioProcessorEditor::mouseExit (const MouseEvent&) { hover = Hit::none; }
+
 void WackdAudioProcessorEditor::mouseDown (const MouseEvent& e)
 {
+    const auto h = hitAt (toUnits (e.position));
     if (e.mods.isPopupMenu())
-        showContextMenu();
-}
-
-void WackdAudioProcessorEditor::addMidiMenu (PopupMenu& menu, int learnIdx)
-{
-    if (learnIdx < 0)
+    {
+        // clic droit sur une commande : son MIDI Learn en tete du menu
+        showContextMenu ((h == Hit::mode || h == Hit::modeL || h == Hit::modeR) ? 4
+                         : (h == Hit::krazy || h == Hit::krazyL || h == Hit::krazyR) ? 5 : h == Hit::foot ? 6 : -1);
         return;
-
-    auto ccText = [this] (int i)
-    {
-        const int cc = proc.ccMap[i].load();
-        return cc >= 0 ? "CC " + String (cc) : String (CharPointer_UTF8 ("\xe2\x80\x94"));
-    };
-    const int lt = proc.learnTarget.load();
-
-    // clic droit sur une commande : MIDI Learn de cette commande en tete du menu
-    // (footswitch : CC ON/OFF et CC bascule, comme les deux CC d'origine 26 et 27)
-    const int last = learnIdx == 6 ? 7 : learnIdx;
-    for (int i = learnIdx; i <= last; ++i)
-    {
-        const String name = WackdAudioProcessor::learnDef (i).name;
-        menu.addItem (1000 + i, "MIDI Learn: " + name + " (" + ccText (i) + ")", true, lt == i);
-        menu.addItem (1100 + i, "Clear MIDI: " + name, proc.ccMap[i].load() >= 0);
     }
-    if (lt >= 0) menu.addItem (1200, "Cancel MIDI learn");
-    menu.addSeparator();
+    if (statusAlpha > 0.0f && layout::presetRect.contains (toUnits (e.position)))
+    {   // la ligne d'etat ne bloque pas : un clic fait revenir la barre de presets
+        statusUntil = 0.0;
+        return;
+    }
+    switch (h)
+    {
+        case Hit::mode:   setParam ("mode",  flag ("mode")  ? 0.0f : 1.0f); break;
+        case Hit::modeL:  setParam ("mode",  0.0f); break;
+        case Hit::modeR:  setParam ("mode",  1.0f); break;
+        case Hit::krazy:  setParam ("krazy", flag ("krazy") ? 0.0f : 1.0f); break;
+        case Hit::krazyL: setParam ("krazy", 0.0f); break;
+        case Hit::krazyR: setParam ("krazy", 1.0f); break;
+        case Hit::foot:
+            footDown = true;
+            setParam ("active", flag ("active") ? 0.0f : 1.0f);
+            break;
+        case Hit::presetPrev: stepPreset (-1); break;
+        case Hit::presetNext: stepPreset (1); break;
+        case Hit::presetName: showPresetMenu(); break;
+        case Hit::none: break;
+    }
 }
 
-void WackdAudioProcessorEditor::handleMidiMenu (int r)
+void WackdAudioProcessorEditor::mouseUp (const MouseEvent&) { footDown = false; }
+
+void WackdAudioProcessorEditor::mouseWheelMove (const MouseEvent& e, const MouseWheelDetails& w)
 {
-    if (r >= 1000 && r < 1000 + WackdAudioProcessor::numLearn)
-        proc.learnTarget.store (proc.learnTarget.load() == r - 1000 ? -1 : r - 1000);   // re-cliquer annule
-    else if (r >= 1100 && r < 1100 + WackdAudioProcessor::numLearn) proc.ccMap[r - 1100].store (-1);
-    else if (r == 1200) proc.learnTarget.store (-1);
-    else if (r == 1201) { proc.learnTarget.store (-1); proc.clearMidiMap(); }
+    const auto h = hitAt (toUnits (e.position));
+    const float step = (std::abs (w.deltaY) > 1.0e-6f ? w.deltaY : w.deltaX) * (w.isReversed ? -1.0f : 1.0f);
+    if (std::abs (step) <= 0.0f) return;
+    if (h == Hit::mode)  setParam ("mode",  step < 0 ? 1.0f : 0.0f);
+    if (h == Hit::krazy) setParam ("krazy", step < 0 ? 1.0f : 0.0f);
 }
 
+//==============================================================================
+// Presets
+//==============================================================================
+static void addPresetItems (PopupMenu& factory, PopupMenu& load, PopupMenu& save, const WackdAudioProcessor& proc, int cp)
+{
+    for (int i = 0; i < WackdAudioProcessor::getNumFactoryPresets(); ++i)
+        factory.addItem (100 + i, String (i + 1) + ". " + WackdAudioProcessor::getFactoryPreset (i).name, true, cp == i);
+    for (int s = 1; s <= 9; ++s)
+    {
+        const bool exists = proc.hasUserPreset (s);
+        load.addItem (200 + s, "User " + String (s) + (exists ? "" : "  (empty)"), exists, cp == 100 + s);
+        save.addItem (300 + s, "User " + String (s) + (exists ? "  (overwrite)" : ""));
+    }
+}
+
+void WackdAudioProcessorEditor::showPresetMenu()
+{
+    PopupMenu m;
+    m.setLookAndFeel (&menuLnf);
+    NineHandsMenu::addHeader (m, menuLnf.f, NineHandsMenu::icoPreset, menuAccent, "Presets", presetLine());
+    PopupMenu factory, load, save;
+    const int cp = editedSincePreset() ? -1 : proc.currentPreset.load();
+    addPresetItems (factory, load, save, proc, cp);
+    m.addSectionHeader ("Factory presets");
+    for (int i = 0; i < WackdAudioProcessor::getNumFactoryPresets(); ++i)
+        m.addItem (100 + i, String (i + 1) + ". " + WackdAudioProcessor::getFactoryPreset (i).name, true, cp == i);
+    m.addSeparator();
+    m.addSubMenu ("Load user preset", load);
+    m.addSubMenu ("Save user preset", save);
+    const auto area = layout::presetRect.transformedBy (AffineTransform::scale (k())).getSmallestIntegerContainer();
+    m.showMenuAsync (PopupMenu::Options().withTargetScreenArea (localAreaToGlobal (area)),
+        [safe = Component::SafePointer<WackdAudioProcessorEditor> (this)] (int r)
+        {
+            if (safe == nullptr || r == 0) return;
+            if (r >= 100 && r < 200)      safe->loadFactory (r - 100);
+            else if (r > 200 && r < 300)  safe->loadUser (r - 200);
+            else if (r > 300 && r < 400)
+            {
+                if (safe->proc.saveUserPreset (r - 300)) { safe->snapshotPreset(); safe->lastPreset = safe->proc.currentPreset.load(); safe->flash ("Saved  User " + String (r - 300)); }
+            }
+        });
+}
+
+//==============================================================================
+// Menu clic droit (design d'Octopus, NineHandsMenu.h), toujours ouvert a l'endroit du clic
+//==============================================================================
 void WackdAudioProcessorEditor::showContextMenu (int learnIdx)
 {
+    using namespace NineHandsMenu;
     PopupMenu menu;
-    addMidiMenu (menu, learnIdx);
-
+    menu.setLookAndFeel (&menuLnf);
+    auto ccText = [this] (int i) { const int cc = proc.ccMap[i].load(); return cc >= 0 ? "CC " + String (cc) : String ("not assigned"); };
+    const int lt = proc.learnTarget.load();
+    if (learnIdx >= 0)
     {
-        // Plugin size : taille de cette fenetre + taille par defaut des nouvelles fenetres (comme Octopus)
+        const String name = WackdAudioProcessor::learnDef (learnIdx).name;
+        const int ico = learnIdx < 4 ? icoKnob : learnIdx < 6 ? icoSwitch : icoPedal;
+        addHeader (menu, menuLnf.f, ico, menuAccent, name, "MIDI: " + ccText (learnIdx));
+        const int last = learnIdx == 6 ? 7 : learnIdx;          // footswitch : ON/OFF et bascule
+        for (int i = learnIdx; i <= last; ++i)
+        {
+            const String n = WackdAudioProcessor::learnDef (i).name;
+            menu.addItem (1000 + i, "MIDI Learn: " + n + (i != learnIdx ? "  (" + ccText (i) + ")" : String()), true, lt == i);
+            menu.addItem (1100 + i, "Clear MIDI: " + n, proc.ccMap[i].load() >= 0);
+        }
+        if (lt >= 0) menu.addItem (1200, "Cancel MIDI learn");
+        menu.addSeparator();
+    }
+    else
+        addHeader (menu, menuLnf.f, icoPedal, menuAccent, "Wack'd", "Chorus / Flanger  v" + String (JucePlugin_VersionString));
+
+    PopupMenu sizes, defSizes;
+    {
         const char* names[numSizes] = { "60 %", "75 %", "100 %" };
-        const int def = WigaWindowSize::defaultIndex (JucePlugin_Name, numSizes);
-        PopupMenu sizes, defSizes;
+        const int def = WigaWindowSize::defaultIndex ("Wackd", numSizes);
         for (int i = 0; i < numSizes; ++i)
         {
             sizes.addItem (1 + i, String (names[i]) + (i == def ? "  (default)" : ""), true, std::abs (getHeight() - sizeHeight (i)) <= 2);
@@ -745,78 +697,83 @@ void WackdAudioProcessorEditor::showContextMenu (int learnIdx)
         }
         sizes.addSeparator();
         sizes.addSubMenu ("Default size (new windows)", defSizes);
-        menu.addSubMenu ("Plugin size", sizes);
     }
+    menu.addSubMenu ("Plugin size", sizes);
+    PopupMenu glowM;                   // reglage du halo des lumieres (regle des skills, nov. 2026)
+    {
+        const int now = roundToInt (glow * 100.0f);
+        for (int i = 0; i < NineHandsGlow::numSteps; ++i)
+        {
+            const int pc = NineHandsGlow::steps[i];
+            glowM.addItem (60 + i, "Glow " + String (pc) + " %" + (pc == 100 ? "  (default)" : ""), true, now == pc);
+        }
+    }
+    menu.addSubMenu ("Glow (halo of the lights)", glowM);
     menu.addSeparator();
 
-    PopupMenu factory;
-    for (int i = 0; i < WackdAudioProcessor::getNumFactoryPresets(); ++i)
-        factory.addItem (100 + i, String (i + 1) + ". " + WackdAudioProcessor::getFactoryPreset (i).name,
-                         true, proc.currentPreset.load() == i);
+    PopupMenu factory, load, save;
+    addPresetItems (factory, load, save, proc, editedSincePreset() ? -1 : proc.currentPreset.load());
     menu.addSubMenu ("Factory presets", factory);
-
-    PopupMenu load, save;
-    for (int slot = 1; slot <= 9; ++slot)
-    {
-        const bool exists = proc.hasUserPreset (slot);
-        load.addItem (200 + slot, "User " + String (slot) + (exists ? "" : "  (empty)"), exists,
-                      proc.currentPreset.load() == 100 + slot);
-        save.addItem (300 + slot, "User " + String (slot) + (exists ? "  (overwrite)" : ""));
-    }
     menu.addSubMenu ("Load user preset", load);
     menu.addSubMenu ("Save user preset", save);
     menu.addSeparator();
 
-    const bool cf7Stereo = proc.apvts.getRawParameterValue ("stereo")->load() > 0.5f;
     PopupMenu outMenu;
-    outMenu.addItem (40, "Mono compatible (before amp sim)", true, ! cf7Stereo);
-    outMenu.addItem (41, "CF7 stereo: OUT2 inverted (after amp sim)", true, cf7Stereo);
+    const bool cf7 = flag ("stereo");
+    outMenu.addItem (40, "Mono compatible (before amp sim)", true, ! cf7);
+    outMenu.addItem (41, "CF7 stereo: OUT2 inverted (after amp sim)", true, cf7);
     menu.addSubMenu ("Output", outMenu);
-    menu.addSeparator();
 
     PopupMenu midi;
+    midi.addSectionHeader ("MIDI Learn");
     for (int i = 0; i < WackdAudioProcessor::numLearn; ++i)
-    {
-        const int cc = proc.ccMap[i].load();
-        midi.addItem (1000 + i, "Learn: " + String (WackdAudioProcessor::learnDef (i).name)
-                                 + " (" + (cc >= 0 ? "CC " + String (cc) : String (CharPointer_UTF8 ("\xe2\x80\x94"))) + ")",
-                      true, proc.learnTarget.load() == i);
-    }
+        midi.addItem (1000 + i, "Learn: " + String (WackdAudioProcessor::learnDef (i).name) + "  (" + ccText (i) + ")", true, lt == i);
     midi.addSeparator();
-    if (proc.learnTarget.load() >= 0) midi.addItem (1200, "Cancel MIDI learn");
+    if (lt >= 0) midi.addItem (1200, "Cancel MIDI learn");
     midi.addItem (1201, "Clear all MIDI assignments");
     midi.addSeparator();
-    midi.addItem (906, "Mode / Krazy: 64+ = Flanger / Wack'd",       false);
-    midi.addItem (907, "Footswitch: 64+ ON / 0-63 OFF",              false);
-    midi.addItem (908, "Program Change 1-9  Factory presets",        false);
-    menu.addSubMenu ("MIDI map", midi);
-
+    midi.addItem (906, "Mode / Krazy: 64+ = Flanger / Wack'd", false);
+    midi.addItem (907, "Footswitch: 64+ ON / 0-63 OFF", false);
+    midi.addItem (908, "Program Change 1-" + String (WackdAudioProcessor::getNumFactoryPresets()) + "  Factory presets", false);
+    menu.addSubMenu ("MIDI", midi);
     menu.addSeparator();
-    menu.addItem (999, "Wack'd flangerus v" + String (JucePlugin_VersionString) + " - NINE HANDS | DSP", false);
+    menu.addItem (999, "Wack'd v" + String (JucePlugin_VersionString) + "  NINE HANDS | DSP", false);
 
-    menu.showMenuAsync (PopupMenu::Options().withTargetComponent (this),
+    menu.showMenuAsync (PopupMenu::Options().withMousePosition(),       // toujours la ou l'on clique
         [safe = Component::SafePointer<WackdAudioProcessorEditor> (this)] (int r)
         {
-            if (safe == nullptr || r == 0)
-                return;
-
+            if (safe == nullptr || r == 0) return;
             auto& ed = *safe;
-            if      (r >= 1 && r < 1 + numSizes) ed.setScaledHeight (ed.sizeHeight (r - 1));
+            auto& pr = ed.proc;
+            if      (r >= 1 && r < 1 + numSizes) ed.setWindowHeight (sizeHeight (r - 1));
             else if (r >= 20 && r < 20 + numSizes)
             {
-                WigaWindowSize::setDefaultIndex (JucePlugin_Name, r - 20);   // toutes les nouvelles fenetres de ce plugin
-                ed.setScaledHeight (ed.sizeHeight (r - 20));                // et cette fenetre tout de suite
+                WigaWindowSize::setDefaultIndex ("Wackd", r - 20);
+                ed.setWindowHeight (sizeHeight (r - 20));
             }
-            else if (r == 40 || r == 41)
+            else if (r >= 60 && r < 60 + NineHandsGlow::numSteps)
             {
-                if (auto* prm = ed.proc.apvts.getParameter ("stereo"))
-                    prm->setValueNotifyingHost (r == 41 ? 1.0f : 0.0f);
+                ed.setGlowPercent (NineHandsGlow::steps[r - 60]);
+                ed.flash ("Glow  " + String (NineHandsGlow::steps[r - 60]) + " %");
             }
-            else if (r >= 100 && r < 200) ed.proc.applyFactoryPreset (r - 100);
-            else if (r > 200 && r < 300)  ed.proc.loadUserPreset (r - 200);
-            else if (r > 300 && r < 400)  ed.proc.saveUserPreset (r - 300);
-            else if (r >= 1000) { ed.handleMidiMenu (r); return; }
-
-            ed.repaint();
+            else if (r >= 100 && r < 200) ed.loadFactory (r - 100);
+            else if (r > 200 && r < 300)  ed.loadUser (r - 200);
+            else if (r > 300 && r < 400)
+            {
+                if (pr.saveUserPreset (r - 300)) { ed.snapshotPreset(); ed.lastPreset = pr.currentPreset.load(); ed.flash ("Saved  User " + String (r - 300)); }
+            }
+            else if (r == 40 || r == 41) ed.setParam ("stereo", r == 41 ? 1.0f : 0.0f);
+            else if (r >= 1000 && r < 1000 + WackdAudioProcessor::numLearn)
+            {
+                const int t = r - 1000;
+                pr.learnTarget.store (pr.learnTarget.load() == t ? -1 : t);       // re-cliquer annule
+            }
+            else if (r >= 1100 && r < 1100 + WackdAudioProcessor::numLearn)
+            {
+                pr.ccMap[r - 1100].store (-1);
+                ed.flash (String (WackdAudioProcessor::learnDef (r - 1100).name) + "  MIDI cleared");
+            }
+            else if (r == 1200) pr.learnTarget.store (-1);
+            else if (r == 1201) { pr.learnTarget.store (-1); pr.clearMidiMap(); ed.flash ("All MIDI cleared"); }
         });
 }

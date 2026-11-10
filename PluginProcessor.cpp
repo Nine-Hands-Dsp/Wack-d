@@ -96,7 +96,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout WackdAudioProcessor::createL
     p.push_back (knob ("speed", "Speed",      3.0f));
     p.push_back (knob ("depth", "Depth",      5.0f));
     p.push_back (knob ("delay", "Delay Time", 4.0f));
-    p.push_back (knob ("regen", "Regen.",     0.0f));
+    p.push_back (knob ("regen", "Regen.",     1.0f));   // v2 : reglages par defaut = preset 1 Classic Chorus
     p.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "mode", 1 },  "Mode",
                                                          StringArray { "Chorus", "Flanger" }, 0));
     p.push_back (std::make_unique<AudioParameterChoice> (ParameterID { "krazy", 1 }, "Krazy",
