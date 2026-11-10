@@ -51,7 +51,9 @@ WackdAudioProcessorEditor::WackdAudioProcessorEditor (WackdAudioProcessor& p)
     L.highlight = png (BinaryData::knob_highlight_png, BinaryData::knob_highlight_pngSize);
     for (int i = 0; i < 4; ++i)
     {
-        knobs[i] = std::make_unique<nh::Knob> (*proc.apvts.getParameter (knobIds[i]), L);
+        nh::Knob::Style ks;
+        ks.shadowOffset = { layout::knobShadowOffset, layout::knobShadowOffset };      // meme decalage qu'avant la marge (45 deg bas droite)
+        knobs[i] = std::make_unique<nh::Knob> (*proc.apvts.getParameter (knobIds[i]), L, ks);
         knobs[i]->onRightClick = [this, i] (const MouseEvent&) { showContextMenu (i); };
         knobs[i]->onUserChange = [this, i] { meterKnob = i; };
         addAndMakeVisible (*knobs[i]);

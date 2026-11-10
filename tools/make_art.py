@@ -21,6 +21,7 @@ def art(n): return os.path.join(ART, n)
 def out(n): return os.path.join(ROOT, n)
 
 H = 1800
+KCANVAS = 900                                          # cote des calques du potard (760 + marge pour l'ombre)
 coque = Image.open(art('coque.png')).convert('RGBA')
 k = H / coque.height
 BW = coque.width * k
@@ -99,6 +100,21 @@ def bar_box(i):
     top = B['topEdge'] + (B['topMid'] - B['topEdge']) * (1 - abs(i - 4) / 4)
     return (x, top, x + B['w'], B['bottom'])
 
+def shadow_layer(mask, ao_blur, ao_a, off, sh_blur, sh_a):
+    """occlusion (assombrissement doux tout autour) + ombre portee a 45 deg vers le bas a droite, hors de l'objet"""
+    ao = cv2.GaussianBlur(mask, (0, 0), ao_blur) * ao_a
+    M = np.float32([[1, 0, off[0]], [0, 1, off[1]]])
+    sh = cv2.GaussianBlur(cv2.warpAffine(mask, M, (mask.shape[1], mask.shape[0])), (0, 0), sh_blur) * sh_a
+    a = np.clip(1 - (1 - ao) * (1 - sh), 0, 1) * (1 - mask)
+    o = np.zeros(mask.shape + (4,), np.uint8); o[..., 3] = (a * 255).astype(np.uint8)
+    return Image.fromarray(o)
+
+def bar_mask():
+    m = Image.new('L', (W * 4, H * 4), 0); d = ImageDraw.Draw(m)
+    for i in range(9):
+        b = bar_box(i); d.rounded_rectangle([v * 4 for v in b], radius=L['bars']['w'] / 2 * 4, fill=255)
+    return np.asarray(m.resize((W, H), Image.LANCZOS)).astype(np.float32) / 255.0
+
 def bars_layer(color):
     """barres : toutes eteintes (color None) ou toutes allumees"""
     SS = 4
@@ -120,7 +136,13 @@ def bars_layer(color):
         else:
             rr(inner, ir, (34, 40, 46, 255))
             rr((inner[0] + 1.5, inner[1] + 1.5, inner[0] + 4, inner[3] - 6), 1.2, (90, 100, 110, 90))
-    return lay.resize((W, H), Image.LANCZOS)
+    lay = lay.resize((W, H), Image.LANCZOS)
+    # ombre interne : l'arete haut-gauche de chaque fente fait de l'ombre dans la fente (sur le verre allume aussi)
+    m = bar_mask(); sm = cv2.GaussianBlur(cv2.warpAffine(m, np.float32([[1, 0, 3], [0, 1, 3]]), (W, H)), (0, 0), 1.6)
+    ish = np.clip(m * (1 - sm), 0, 1) * 0.6
+    a = np.asarray(lay).astype(np.float32)
+    a[..., :3] *= (1 - ish[..., None])
+    return Image.fromarray(np.clip(a, 0, 255).astype(np.uint8))
 
 def led_sprite(name):
     led = Image.open(art(f'led_{name}_thin.png'))
@@ -162,16 +184,18 @@ def background():
         sw, sh = L['slotW'], L['slotH']
         rim = Image.new('RGBA', (W, H), (0, 0, 0, 0)); rd = ImageDraw.Draw(rim)
         bx = (cx - sw / 2 - 2, cy - sh / 2 - 2, cx + sw / 2 + 2, cy + sh / 2 + 2)
+        mk = Image.new('L', (W, H), 0); ImageDraw.Draw(mk).rounded_rectangle(bx, radius=6, fill=255)
+        img.alpha_composite(shadow_layer(np.asarray(mk).astype(np.float32) / 255.0, 7, 0.40, (4, 5), 5, 0.42))
         rd.rounded_rectangle([bx[0] + 1.5, bx[1] + 1.5, bx[2] + 1.5, bx[3] + 1.5], radius=6, fill=(255, 250, 238, 150))
         rd.rounded_rectangle(bx, radius=6, fill=(20, 22, 22, 230))
         img.alpha_composite(rim)
         paste_center(img, slide('left'), cx, cy)
     # LED eteinte + ombre de sa bague
     lx, ly = L['led']; ro = L['ledR'] * 190.2 / 225.0
-    sh = Image.new('RGBA', (W, H), (0, 0, 0, 0))
-    ImageDraw.Draw(sh).ellipse((lx - ro + 4, ly - ro + 4, lx + ro + 4, ly + ro + 4), fill=(0, 0, 0, 110))
-    img.alpha_composite(sh.filter(ImageFilter.GaussianBlur(6)))
+    lm = np.zeros((H, W), np.float32); cv2.circle(lm, (int(round(lx)), int(round(ly))), int(round(ro)), 1.0, -1, cv2.LINE_AA)
+    img.alpha_composite(shadow_layer(lm, 9, 0.45, (7, 8), 8, 0.55))
     paste_center(img, led_sprite('off'), lx, ly)
+    img.alpha_composite(shadow_layer(bar_mask(), 4, 0.40, (2, 3), 2.5, 0.35))      # occlusion + ombre autour des fentes
     img.alpha_composite(bars_layer(None))
     # footswitch (photo) + ombre
     fs = Image.open(art('foot.png')).crop((180, 220, 1074, 1014))
@@ -183,8 +207,25 @@ def background():
     paste_center(img, fs, *L['foot'])
     return img
 
+def slide_full(side):
+    """fente + selecteur, avec l'ombre portee du selecteur sur le fond de la cavite et l'ombre interne de l'arete haut-gauche"""
+    im = np.asarray(Image.open(art(f'slide_{side}_b.png'))).astype(np.float32)
+    h, w = im.shape[:2]
+    x0, x1 = (16, 284) if side == 'left' else (310, 553)
+    sm = Image.new('L', (w, h), 0); ImageDraw.Draw(sm).rounded_rectangle((x0, 2, x1, h - 3), radius=16, fill=255)
+    sm = np.asarray(sm).astype(np.float32) / 255.0
+    cast = cv2.GaussianBlur(cv2.warpAffine(sm, np.float32([[1, 0, 18], [0, 1, 12]]), (w, h)), (0, 0), 9) * 0.75
+    ao = cv2.GaussianBlur(sm, (0, 0), 12) * 0.45
+    floor = np.clip(1 - (1 - cast) * (1 - ao), 0, 1) * (1 - sm)
+    cav = np.ones((h, w), np.float32)
+    edge = cv2.GaussianBlur(cv2.warpAffine(cav, np.float32([[1, 0, 10], [0, 1, 10]]), (w, h)), (0, 0), 6)
+    inner = np.clip(1 - edge, 0, 1) * 0.65
+    dark = np.clip(1 - (1 - floor) * (1 - inner), 0, 1)
+    im[..., :3] *= (1 - dark[..., None])
+    return Image.fromarray(np.clip(im, 0, 255).astype(np.uint8))
+
 def slide(side):
-    return Image.open(art(f'slide_{side}_b.png')).resize((int(round(L['slotW'])), int(round(L['slotH']))), Image.LANCZOS)
+    return slide_full(side).resize((int(round(L['slotW'])), int(round(L['slotH']))), Image.LANCZOS)
 
 # ---------------------------------------------------------------------------------------------
 def light_masks():
@@ -250,19 +291,21 @@ def main():
         crop[..., 3] = np.asarray(ls)[..., 3]
         Image.fromarray(crop).save(out(f'led_{name}.png'), optimize=True)
     for side in ('left', 'right'):
-        Image.open(art(f'slide_{side}_b.png')).save(out(f'slide_{side}.png'), optimize=True)
+        slide_full(side).save(out(f'slide_{side}.png'), optimize=True)
     for n, src in (('shadow', 'shadow'), ('crown', 'crowncap'), ('marker', 'marker'), ('highlight', 'highlight')):
-        Image.open(art(f'knob_{src}.png')).save(out(f'knob_{n}.png'), optimize=True)
+        # marge transparente autour des calques (760 -> KCANVAS) : l'ombre decalee a 45 deg n'est plus coupee par le composant
+        im = Image.open(art(f'knob_{src}.png')); pad = Image.new('RGBA', (KCANVAS, KCANVAS), (0, 0, 0, 0))
+        pad.paste(im, ((KCANVAS - 760) // 2, (KCANVAS - 760) // 2)); pad.save(out(f'knob_{n}.png'), optimize=True)
 
     # ------------------------------------------------------------------ Layout.h (unites = px / 2)
     u = lambda v: v / 2.0
     ls = led_sprite('blue')
-    knobS = 760 * R / 346.0
+    knobS = KCANVAS * R / 346.0
     lines = ['// genere par tools/make_art.py - ne pas modifier a la main (repere 615 x 900 = fond 1230 x 1800 px / 2)',
              '#pragma once', '#include <juce_graphics/juce_graphics.h>', 'namespace layout', '{',
              f'    constexpr float frameW = {u(W):.2f}f, frameH = {u(H):.2f}f;',
              f'    const juce::Point<float> knobPos[4] = {{ ' + ', '.join(f'{{ {u(x):.2f}f, {u(y):.2f}f }}' for x, y in L['knobs']) + ' };',
-             f'    const float knobR = {u(R):.2f}f, knobS = {u(knobS):.2f}f;   // rayon du potard, cote du composant nh::Knob',
+             f'    const float knobR = {u(R):.2f}f, knobS = {u(knobS):.2f}f, knobShadowOffset = {0.025 * 760 / KCANVAS:.4f}f;   // rayon, cote du composant nh::Knob, decalage de l ombre',
              f'    const juce::Point<float> modePos {{ {u(L["mode"][0]):.2f}f, {u(L["mode"][1]):.2f}f }}, krazyPos {{ {u(L["krazy"][0]):.2f}f, {u(L["krazy"][1]):.2f}f }};',
              f'    const float slotW = {u(L["slotW"]):.2f}f, slotH = {u(L["slotH"]):.2f}f;',
              f'    const juce::Point<float> ledPos {{ {u(L["led"][0]):.2f}f, {u(L["led"][1]):.2f}f }}; const float ledW = {u(ls.width):.2f}f, ledH = {u(ls.height):.2f}f, ledR = {u(L["ledR"]):.2f}f;',

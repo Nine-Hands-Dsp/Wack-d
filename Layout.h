@@ -5,7 +5,7 @@ namespace layout
 {
     constexpr float frameW = 615.00f, frameH = 900.00f;
     const juce::Point<float> knobPos[4] = { { 89.69f, 120.60f }, { 234.59f, 120.60f }, { 379.95f, 120.60f }, { 525.78f, 120.60f } };
-    const float knobR = 57.00f, knobS = 125.20f;   // rayon du potard, cote du composant nh::Knob
+    const float knobR = 57.00f, knobS = 148.27f, knobShadowOffset = 0.0211f;   // rayon, cote du composant nh::Knob, decalage de l ombre
     const juce::Point<float> modePos { 144.81f, 310.77f }, krazyPos { 471.24f, 310.77f };
     const float slotW = 100.00f, slotH = 34.53f;
     const juce::Point<float> ledPos { 306.98f, 307.80f }; const float ledW = 91.00f, ledH = 92.00f, ledR = 40.00f;
