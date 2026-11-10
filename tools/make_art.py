@@ -41,7 +41,7 @@ L = {
     'led': [fx(0.4991), fy(0.3420)], 'ledR': 80.0,
     'bars': {'x0': fx(0.4070), 'step': 24.5, 'w': 17.0, 'bottom': 778.0, 'topEdge': 712.0, 'topMid': 742.0},
     'pill': [W / 2, fy(0.595), 800.0, 76.0],
-    'jacks': {'out1': fy(0.495), 'out2': fy(0.595), 'in': fy(0.495)},
+    'jacks': {'out1': fy(0.495), 'out2': fy(0.595) + 100.0, 'in': fy(0.495)},   # OUT2 descendue de 100 px (demande nov. 2026)
     'title': [W / 2, 1290.0], 'sub': [W / 2, 1395.0],
     'foot': [W / 2, fy(0.869)], 'footW': 194.0,
     'logo': [W / 2, 1718.0, 430.0],
