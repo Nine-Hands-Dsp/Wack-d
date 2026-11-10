@@ -108,11 +108,11 @@ int main (int argc, char** argv)
             FileOutputStream os (f); PNGImageFormat().writeImageToStream (img, os);
             std::printf ("%s\n", f.getFullPathName().toRawUTF8());
         };
-        render ("wk_menu", "Wack'd", "Chorus / Flanger  v2.0.3", NineHandsMenu::icoPedal,
+        render ("wk_menu", "Wack'd", "Chorus / Flanger  v2.0.4", NineHandsMenu::icoPedal,
                 { { "Plugin size", false, true }, { "Glow (halo of the lights)", false, true }, { "", true },
                   { "Factory presets", false, true }, { "Load user preset", false, true }, { "Save user preset", false, true }, { "", true },
                   { "Output", false, true }, { "MIDI", false, true }, { "", true },
-                  { "Wack'd v2.0.3  NINE HANDS | DSP", false, false, false, false } }, 1);
+                  { "Wack'd v2.0.4  NINE HANDS | DSP", false, false, false, false } }, 1);
         std::vector<It> g;
         for (int pc : { 25, 50, 75, 100 })
             g.push_back ({ "Glow " + String (pc) + " %" + (pc == 100 ? "  (default)" : ""), false, false, pc == 100 });

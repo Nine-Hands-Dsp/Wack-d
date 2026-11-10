@@ -185,7 +185,7 @@ def background():
         rim = Image.new('RGBA', (W, H), (0, 0, 0, 0)); rd = ImageDraw.Draw(rim)
         bx = (cx - sw / 2 - 2, cy - sh / 2 - 2, cx + sw / 2 + 2, cy + sh / 2 + 2)
         mk = Image.new('L', (W, H), 0); ImageDraw.Draw(mk).rounded_rectangle(bx, radius=6, fill=255)
-        img.alpha_composite(shadow_layer(np.asarray(mk).astype(np.float32) / 255.0, 7, 0.40, (4, 5), 5, 0.42))
+        img.alpha_composite(shadow_layer(np.asarray(mk).astype(np.float32) / 255.0, 12, 0.85, (9, 10), 9, 0.75))
         rd.rounded_rectangle([bx[0] + 1.5, bx[1] + 1.5, bx[2] + 1.5, bx[3] + 1.5], radius=6, fill=(255, 250, 238, 150))
         rd.rounded_rectangle(bx, radius=6, fill=(20, 22, 22, 230))
         img.alpha_composite(rim)
@@ -193,9 +193,9 @@ def background():
     # LED eteinte + ombre de sa bague
     lx, ly = L['led']; ro = L['ledR'] * 190.2 / 225.0
     lm = np.zeros((H, W), np.float32); cv2.circle(lm, (int(round(lx)), int(round(ly))), int(round(ro)), 1.0, -1, cv2.LINE_AA)
-    img.alpha_composite(shadow_layer(lm, 9, 0.45, (7, 8), 8, 0.55))
+    img.alpha_composite(shadow_layer(lm, 14, 0.85, (12, 13), 12, 0.80))
     paste_center(img, led_sprite('off'), lx, ly)
-    img.alpha_composite(shadow_layer(bar_mask(), 4, 0.40, (2, 3), 2.5, 0.35))      # occlusion + ombre autour des fentes
+    img.alpha_composite(shadow_layer(bar_mask(), 6, 0.85, (4, 5), 4, 0.65))      # occlusion + ombre autour des fentes
     img.alpha_composite(bars_layer(None))
     # footswitch (photo) + ombre
     fs = Image.open(art('foot.png')).crop((180, 220, 1074, 1014))
@@ -214,8 +214,8 @@ def slide_full(side):
     x0, x1 = (16, 284) if side == 'left' else (310, 553)
     sm = Image.new('L', (w, h), 0); ImageDraw.Draw(sm).rounded_rectangle((x0, 2, x1, h - 3), radius=16, fill=255)
     sm = np.asarray(sm).astype(np.float32) / 255.0
-    cast = cv2.GaussianBlur(cv2.warpAffine(sm, np.float32([[1, 0, 18], [0, 1, 12]]), (w, h)), (0, 0), 9) * 0.75
-    ao = cv2.GaussianBlur(sm, (0, 0), 12) * 0.45
+    cast = cv2.GaussianBlur(cv2.warpAffine(sm, np.float32([[1, 0, 26], [0, 1, 18]]), (w, h)), (0, 0), 11) * 0.92
+    ao = cv2.GaussianBlur(sm, (0, 0), 14) * 0.65
     floor = np.clip(1 - (1 - cast) * (1 - ao), 0, 1) * (1 - sm)
     cav = np.ones((h, w), np.float32)
     edge = cv2.GaussianBlur(cv2.warpAffine(cav, np.float32([[1, 0, 10], [0, 1, 10]]), (w, h)), (0, 0), 6)
