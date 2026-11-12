@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.22)
 set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "")
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "")
 
-project(WACKD VERSION 2.0.4 LANGUAGES C CXX)
+project(WACKD VERSION 2.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -25,7 +25,7 @@ juce_add_plugin(Wackd
     PLUGIN_CODE                 Wkcf
     FORMATS                     VST3
     PRODUCT_NAME                "Wackd"
-    VERSION                     2.0.4
+    VERSION                     2.1.0
     IS_SYNTH                    FALSE
     NEEDS_MIDI_INPUT            TRUE
     NEEDS_MIDI_OUTPUT           FALSE
@@ -53,6 +53,17 @@ target_sources(Wackd PRIVATE
     PluginEditor.cpp
 )
 
+
+# verrou de taille de la fenetre du DAW (jamais sous 60 %, jamais au-dela de 150 %)
+if(APPLE)
+  target_sources(Wackd PRIVATE WindowMinSize.mm)
+  target_link_libraries(Wackd PRIVATE "-framework Cocoa")
+else()
+  target_sources(Wackd PRIVATE WindowMinSize.cpp)
+endif()
+if(WIN32)
+  target_link_libraries(Wackd PRIVATE comctl32 user32)
+endif()
 if(MSVC)
     target_compile_options(Wackd PRIVATE /utf-8)
 endif()

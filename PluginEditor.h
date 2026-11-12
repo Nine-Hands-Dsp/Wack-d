@@ -4,6 +4,7 @@
 #include "Layout.h"
 #include "NHKnob.h"
 #include "NineHandsMenu.h"
+#include "NineHandsWindow.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 
 //==============================================================================
@@ -67,6 +68,9 @@ private:
     bool editedSincePreset() const;
     void stepPreset (int delta);
     void showPresetMenu();
+public:
+    juce::PopupMenu buildContextMenu (int learnIdx = -1);   // menu clic droit (aussi pour l'outil de controle des menus)
+private:
     void showContextMenu (int learnIdx = -1);
     void buildPrint();
     void updateMeter();
@@ -79,6 +83,7 @@ private:
 
     WackdAudioProcessor& proc;
     NineHandsMenu::MenuLnf menuLnf;
+    NineHandsWindow::HostLock hostLock;    // fenetre du DAW : jamais sous 60 %, jamais au-dela de 150 %
     juce::Typeface::Ptr regularFace, mediumFace, semiFace, boldFace;
     std::unique_ptr<juce::Drawable> logo;
     juce::Path printPath;                       // serigraphie (unites du plugin)

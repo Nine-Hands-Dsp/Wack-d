@@ -64,8 +64,9 @@ WackdAudioProcessorEditor::WackdAudioProcessorEditor (WackdAudioProcessor& p)
     setResizable (true, true);
     setResizeLimits (roundToInt (heightDefault * aspect), heightDefault, roundToInt (heightMax * aspect), heightMax);
     getConstrainer()->setFixedAspectRatio (aspect);
+    hostLock.setLimits (roundToInt (heightDefault * aspect), heightDefault, roundToInt (heightMax * aspect), heightMax);
     setOpaque (true);
-    const int h0 = sizeHeight (WigaWindowSize::defaultIndex ("Wackd", numSizes));
+    const int h0 = sizeHeight (NineHandsWindow::openIndex ("Wackd", proc.uiSizeIdx.load(), numSizes));   // taille du projet, sinon taille par defaut
     setSize (roundToInt (h0 * aspect), h0);
     rebuildCaches();
 
@@ -102,7 +103,7 @@ void WackdAudioProcessorEditor::useSoftwareRenderer()
    #endif
 }
 
-void WackdAudioProcessorEditor::parentHierarchyChanged() { useSoftwareRenderer(); }
+void WackdAudioProcessorEditor::parentHierarchyChanged() { useSoftwareRenderer(); hostLock.track (*this); }
 void WackdAudioProcessorEditor::visibilityChanged()      { useSoftwareRenderer(); if (isShowing()) repaint(); }
 
 float WackdAudioProcessorEditor::physicalScale() const
@@ -137,6 +138,7 @@ void WackdAudioProcessorEditor::setWindowHeight (int h)
 {
     h = jlimit (heightDefault, heightMax, h);
     setSize (roundToInt ((double) h * baseW / baseH), h);
+    hostLock.enforce();
 }
 
 void WackdAudioProcessorEditor::rebuildCaches (float sc)
@@ -334,6 +336,7 @@ void WackdAudioProcessorEditor::timerCallback()
 {
     const double now = Time::getMillisecondCounterHiRes();
     if (getPeer() != lastPeer || now - lastRendererCheckMs > 1000.0) { lastRendererCheckMs = now; useSoftwareRenderer(); }
+    hostLock.track (*this);
     if (resizeSettle > 0 && --resizeSettle == 0) rebuildCaches();
     else if (resizeSettle == 0 && now - lastScaleCheckMs > 250.0)
     {
@@ -680,7 +683,7 @@ void WackdAudioProcessorEditor::showPresetMenu()
 //==============================================================================
 // Menu clic droit (design d'Octopus, NineHandsMenu.h), toujours ouvert a l'endroit du clic
 //==============================================================================
-void WackdAudioProcessorEditor::showContextMenu (int learnIdx)
+PopupMenu WackdAudioProcessorEditor::buildContextMenu (int learnIdx)
 {
     using namespace NineHandsMenu;
     PopupMenu menu;
@@ -689,47 +692,17 @@ void WackdAudioProcessorEditor::showContextMenu (int learnIdx)
     const int lt = proc.learnTarget.load();
     if (learnIdx >= 0)
     {
+        // menu d'une commande (tronc commun) : en-tete, MIDI Learn, Clear MIDI, Cancel MIDI learn
         const String name = WackdAudioProcessor::learnDef (learnIdx).name;
         const int ico = learnIdx < 4 ? icoKnob : learnIdx < 6 ? icoSwitch : icoPedal;
         addHeader (menu, menuLnf.f, ico, menuAccent, name, "MIDI: " + ccText (learnIdx));
-        const int last = learnIdx == 6 ? 7 : learnIdx;          // footswitch : ON/OFF et bascule
-        for (int i = learnIdx; i <= last; ++i)
-        {
-            const String n = WackdAudioProcessor::learnDef (i).name;
-            menu.addItem (1000 + i, "MIDI Learn: " + n + (i != learnIdx ? "  (" + ccText (i) + ")" : String()), true, lt == i);
-            menu.addItem (1100 + i, "Clear MIDI: " + n, proc.ccMap[i].load() >= 0);
-        }
-        if (lt >= 0) menu.addItem (1200, "Cancel MIDI learn");
-        menu.addSeparator();
+        menu.addItem (1000 + learnIdx, "MIDI Learn: " + name, true, lt == learnIdx);
+        menu.addItem (1100 + learnIdx, "Clear MIDI: " + name, proc.ccMap[learnIdx].load() >= 0);
+        menu.addItem (1200, "Cancel MIDI learn", lt >= 0);
+        return menu;
     }
-    else
-        addHeader (menu, menuLnf.f, icoPedal, menuAccent, "Wack'd", "Chorus / Flanger  v" + String (JucePlugin_VersionString));
 
-    PopupMenu sizes, defSizes;
-    {
-        const char* names[numSizes] = { "60 %", "75 %", "100 %" };
-        const int def = WigaWindowSize::defaultIndex ("Wackd", numSizes);
-        for (int i = 0; i < numSizes; ++i)
-        {
-            sizes.addItem (1 + i, String (names[i]) + (i == def ? "  (default)" : ""), true, std::abs (getHeight() - sizeHeight (i)) <= 2);
-            defSizes.addItem (20 + i, names[i], true, i == def);
-        }
-        sizes.addSeparator();
-        sizes.addSubMenu ("Default size (new windows)", defSizes);
-    }
-    menu.addSubMenu ("Plugin size", sizes);
-    PopupMenu glowM;                   // reglage du halo des lumieres (regle des skills, nov. 2026)
-    {
-        const int now = roundToInt (glow * 100.0f);
-        for (int i = 0; i < NineHandsGlow::numSteps; ++i)
-        {
-            const int pc = NineHandsGlow::steps[i];
-            glowM.addItem (60 + i, "Glow " + String (pc) + " %" + (pc == 100 ? "  (default)" : ""), true, now == pc);
-        }
-    }
-    menu.addSubMenu ("Glow (halo of the lights)", glowM);
-    menu.addSeparator();
-
+    addHeader (menu, menuLnf.f, icoPedal, menuAccent, "Wack'd", "Chorus / Flanger  v" + String (JucePlugin_VersionString));
     PopupMenu factory, load, save;
     addPresetItems (factory, load, save, proc, editedSincePreset() ? -1 : proc.currentPreset.load());
     menu.addSubMenu ("Factory presets", factory);
@@ -741,47 +714,52 @@ void WackdAudioProcessorEditor::showContextMenu (int learnIdx)
     const bool cf7 = flag ("stereo");
     outMenu.addItem (40, "Mono compatible (before amp sim)", true, ! cf7);
     outMenu.addItem (41, "CF7 stereo: OUT2 inverted (after amp sim)", true, cf7);
-    menu.addSubMenu ("Output", outMenu);
+    menu.addSubMenu ("Output type", outMenu);
+    menu.addSeparator();
 
     PopupMenu midi;
     midi.addSectionHeader ("MIDI Learn");
     for (int i = 0; i < WackdAudioProcessor::numLearn; ++i)
         midi.addItem (1000 + i, "Learn: " + String (WackdAudioProcessor::learnDef (i).name) + "  (" + ccText (i) + ")", true, lt == i);
     midi.addSeparator();
-    if (lt >= 0) midi.addItem (1200, "Cancel MIDI learn");
+    midi.addItem (1200, "Cancel MIDI learn", lt >= 0);
     midi.addItem (1201, "Clear all MIDI assignments");
     midi.addSeparator();
-    midi.addItem (906, "Mode / Krazy: 64+ = Flanger / Wack'd", false);
-    midi.addItem (907, "Footswitch: 64+ ON / 0-63 OFF", false);
-    midi.addItem (908, "Program Change 1-" + String (WackdAudioProcessor::getNumFactoryPresets()) + "  Factory presets", false);
+    NineHandsWindow::addMidiFootswitchMode (midi, ! proc.midiFsMomentary.load());
+    midi.addSeparator();
+    NineHandsWindow::addProgramChangeInfo (midi);
     menu.addSubMenu ("MIDI", midi);
     menu.addSeparator();
-    menu.addItem (999, "Wack'd v" + String (JucePlugin_VersionString) + "  NINE HANDS | DSP", false);
 
+    const char* names[numSizes] = { "60 %", "75 %", "100 %" };
+    const int heights[numSizes] = { sizeHeight (0), sizeHeight (1), sizeHeight (2) };
+    menu.addSubMenu ("Plugin size", NineHandsWindow::sizeMenu ("Wackd", numSizes, names, heights, getHeight()));
+    menu.addSubMenu ("Glow intensity", NineHandsWindow::glowMenu (roundToInt (glow * 100.0f)));
+    return menu;
+}
+
+void WackdAudioProcessorEditor::showContextMenu (int learnIdx)
+{
+    auto menu = buildContextMenu (learnIdx);
     menu.showMenuAsync (PopupMenu::Options().withMousePosition(),       // toujours la ou l'on clique
         [safe = Component::SafePointer<WackdAudioProcessorEditor> (this)] (int r)
         {
             if (safe == nullptr || r == 0) return;
             auto& ed = *safe;
             auto& pr = ed.proc;
-            if      (r >= 1 && r < 1 + numSizes) ed.setWindowHeight (sizeHeight (r - 1));
-            else if (r >= 20 && r < 20 + numSizes)
-            {
-                WigaWindowSize::setDefaultIndex ("Wackd", r - 20);
-                ed.setWindowHeight (sizeHeight (r - 20));
-            }
-            else if (r >= 60 && r < 60 + NineHandsGlow::numSteps)
-            {
-                ed.setGlowPercent (NineHandsGlow::steps[r - 60]);
-                ed.flash ("Glow  " + String (NineHandsGlow::steps[r - 60]) + " %");
-            }
-            else if (r >= 100 && r < 200) ed.loadFactory (r - 100);
+            int inst = pr.uiSizeIdx.load();
+            const int sz = NineHandsWindow::handleSize (r, "Wackd", numSizes, inst);
+            if (sz >= 0) { pr.uiSizeIdx = inst; ed.setWindowHeight (sizeHeight (sz)); return; }
+            if (const int pc = NineHandsWindow::handleGlow (r, "Wackd")) { ed.setGlowPercent (pc); ed.flash ("Glow  " + String (pc) + " %"); return; }
+            if (r >= 100 && r < 200) ed.loadFactory (r - 100);
             else if (r > 200 && r < 300)  ed.loadUser (r - 200);
             else if (r > 300 && r < 400)
             {
                 if (pr.saveUserPreset (r - 300)) { ed.snapshotPreset(); ed.lastPreset = pr.currentPreset.load(); ed.flash ("Saved  User " + String (r - 300)); }
             }
             else if (r == 40 || r == 41) ed.setParam ("stereo", r == 41 ? 1.0f : 0.0f);
+            else if (r == NineHandsWindow::idLatch)     pr.midiFsMomentary = false;
+            else if (r == NineHandsWindow::idMomentary) pr.midiFsMomentary = true;
             else if (r >= 1000 && r < 1000 + WackdAudioProcessor::numLearn)
             {
                 const int t = r - 1000;

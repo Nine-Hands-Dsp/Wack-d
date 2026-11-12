@@ -239,7 +239,10 @@ void WackdAudioProcessor::handleMidi (juce::MidiBuffer& midi)
                 {
                     case learnContinuous: setParamFromAudio (d.id, knobValue); break;
                     case learnToggle:
-                    case learnFootswitch: setParamFromAudio (d.id, v >= 64 ? 1.0f : 0.0f); break;
+                    case learnFootswitch:
+                        if (! midiFsMomentary.load (std::memory_order_relaxed)) setParamFromAudio (d.id, v >= 64 ? 1.0f : 0.0f);   // latching
+                        else if (v >= 64 && prevFsCC[ctl] < 64) setParamFromAudio (d.id, queuedOrCurrent (d.id, pActive) > 0.5f ? 0.0f : 1.0f);
+                        break;
                     case learnFootToggle:
                         if (v >= 64 && prevFsCC[ctl] < 64)
                             setParamFromAudio (d.id, queuedOrCurrent (d.id, pActive) > 0.5f ? 0.0f : 1.0f);
@@ -607,6 +610,8 @@ void WackdAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
     state.setProperty ("currentPreset", currentPreset.load(), nullptr);
+    state.setProperty ("uiSize", uiSizeIdx.load(), nullptr);
+    state.setProperty ("midiFsMomentary", midiFsMomentary.load(), nullptr);
     for (int i = 0; i < numLearn; ++i)
         state.setProperty ("cc_" + juce::String (i), ccMap[i].load(), nullptr);
     if (auto xml = state.createXml())
@@ -621,6 +626,8 @@ void WackdAudioProcessor::setStateInformation (const void* data, int sizeInBytes
         {
             auto state = juce::ValueTree::fromXml (*xml);
             currentPreset = (int) state.getProperty ("currentPreset", 0);
+            uiSizeIdx = juce::jlimit (-1, 2, (int) state.getProperty ("uiSize", -1));
+            midiFsMomentary = (bool) state.getProperty ("midiFsMomentary", false);
             // assignations MIDI Learn : aucune par defaut. Un ancien projet dont la table est
             // exactement l'ancienne table d'usine (20 a 27, ou proprietes absentes) est vide.
             int loaded[numLearn];
