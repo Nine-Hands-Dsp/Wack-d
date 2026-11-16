@@ -39,8 +39,8 @@ const WackdAudioProcessor::LearnDef& WackdAudioProcessor::learnDef (int i)
         { "regen",  "Regen.",            ccRegen,      learnContinuous, 0 },
         { "mode",   "Mode",              ccMode,       learnToggle,     2 },   // >= 64 : Flanger
         { "krazy",  "Krazy",             ccKrazy,      learnToggle,     2 },   // >= 64 : Wack'd
-        { "active", "Footswitch",        ccFootswitch, learnFootswitch, 0 },   // >= 64 ON, < 64 OFF
-        { "active", "Footswitch toggle", ccFootToggle, learnFootToggle, 0 },   // chaque appui inverse l'etat
+        { "active", "Bypass",            ccFootswitch, learnFootswitch, 0 },   // >= 64 ON, < 64 OFF
+        { "active", "Bypass toggle",     ccFootToggle, learnFootToggle, 0 },   // chaque appui inverse l'etat
     };
     return defs[juce::jlimit (0, numLearn - 1, i)];
 }
@@ -240,7 +240,7 @@ void WackdAudioProcessor::handleMidi (juce::MidiBuffer& midi)
                     case learnContinuous: setParamFromAudio (d.id, knobValue); break;
                     case learnToggle:
                     case learnFootswitch:
-                        if (! midiFsMomentary.load (std::memory_order_relaxed)) setParamFromAudio (d.id, v >= 64 ? 1.0f : 0.0f);   // latching
+                        if (true) setParamFromAudio (d.id, v >= 64 ? 1.0f : 0.0f);   // latching
                         else if (v >= 64 && prevFsCC[ctl] < 64) setParamFromAudio (d.id, queuedOrCurrent (d.id, pActive) > 0.5f ? 0.0f : 1.0f);
                         break;
                     case learnFootToggle:
@@ -257,16 +257,6 @@ void WackdAudioProcessor::handleMidi (juce::MidiBuffer& midi)
 
             lastMidiCC    = cc;
             lastMidiValue = v;
-            ++midiCounter;
-        }
-        else if (m.isProgramChange())
-        {
-            const int prog = m.getProgramChangeNumber();
-            if (prog < getNumFactoryPresets())
-                pendingPreset.store (prog);      // applique par le timer (thread de messages)
-
-            lastMidiProgram = prog;
-            lastMidiCC      = -2; // indique un Program Change
             ++midiCounter;
         }
     }

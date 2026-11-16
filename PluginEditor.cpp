@@ -643,7 +643,7 @@ void WackdAudioProcessorEditor::mouseWheelMove (const MouseEvent& e, const Mouse
 static void addPresetItems (PopupMenu& factory, PopupMenu& load, PopupMenu& save, const WackdAudioProcessor& proc, int cp)
 {
     for (int i = 0; i < WackdAudioProcessor::getNumFactoryPresets(); ++i)
-        factory.addItem (100 + i, String (i + 1) + ". " + WackdAudioProcessor::getFactoryPreset (i).name, true, cp == i);
+        NineHandsMenu::addItem (factory, 100 + i, String (i + 1) + ". " + WackdAudioProcessor::getFactoryPreset (i).name, NineHandsMenu::icoDot, true, cp == i);
     for (int s = 1; s <= 9; ++s)
     {
         const bool exists = proc.hasUserPreset (s);
@@ -712,22 +712,19 @@ PopupMenu WackdAudioProcessorEditor::buildContextMenu (int learnIdx)
 
     PopupMenu outMenu;
     const bool cf7 = flag ("stereo");
-    outMenu.addItem (40, "Mono compatible (before amp sim)", true, ! cf7);
-    outMenu.addItem (41, "CF7 stereo: OUT2 inverted (after amp sim)", true, cf7);
-    menu.addSubMenu ("Output type", outMenu);
+    outMenu.addSectionHeader ("Output type");
+    outMenu.addItem (40, "Mono compatible (before amp)", true, ! cf7);
+    outMenu.addItem (41, "CF7 stereo - OUT2 inverted (after amp)", true, cf7);
+    menu.addSubMenu ("Settings", outMenu);
     menu.addSeparator();
 
     PopupMenu midi;
     midi.addSectionHeader ("MIDI Learn");
-    for (int i = 0; i < WackdAudioProcessor::numLearn; ++i)
-        midi.addItem (1000 + i, "Learn: " + String (WackdAudioProcessor::learnDef (i).name) + "  (" + ccText (i) + ")", true, lt == i);
+    for (int i : { 0, 1, 2, 3, 4, 5, 7, 6 })
+        NineHandsMenu::addItem (midi, 1000 + i, "Learn: " + String (WackdAudioProcessor::learnDef (i).name) + " (" + ccText (i) + ")", (i >= 6) ? NineHandsMenu::icoSwitch : NineHandsMenu::icoMidi, true, lt == i);
     midi.addSeparator();
     midi.addItem (1200, "Cancel MIDI learn", lt >= 0);
     midi.addItem (1201, "Clear all MIDI assignments");
-    midi.addSeparator();
-    NineHandsWindow::addMidiFootswitchMode (midi, ! proc.midiFsMomentary.load());
-    midi.addSeparator();
-    NineHandsWindow::addProgramChangeInfo (midi);
     menu.addSubMenu ("MIDI", midi);
     menu.addSeparator();
 
