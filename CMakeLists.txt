@@ -25,7 +25,7 @@ juce_add_plugin(Wackd
     PLUGIN_CODE                 Wkcf
     FORMATS                     VST3
     PRODUCT_NAME                "Wackd"
-    VERSION                     2.1.0
+    VERSION ${PROJECT_VERSION}
     IS_SYNTH                    FALSE
     NEEDS_MIDI_INPUT            TRUE
     NEEDS_MIDI_OUTPUT           FALSE
